@@ -153,17 +153,17 @@ export const useTenantUsers = (tenantId: string | undefined) => {
 
     const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
     const newUserId = `user_invited_${Date.now()}`;
-    const invitedUser: TenantUser = {
-      id: newUserId,
-      name,
-      email,
-      role,
-      status: 'Invited',
-      invitedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString()
-    };
 
     if (isSandbox) {
+      const invitedUser: TenantUser = {
+        id: newUserId,
+        name,
+        email,
+        role,
+        status: 'Invited',
+        invitedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      };
       const updated = [...users, invitedUser];
       localStorage.setItem(`flowops_users_${tenantId}`, JSON.stringify(updated));
       setUsers(updated);
@@ -172,20 +172,32 @@ export const useTenantUsers = (tenantId: string | undefined) => {
       console.log(`%c[OUT-OF-BAND STUB] Invite email notification mock triggered successfully to: ${email} for role: ${role}`, 'color: #0d9488; font-weight: bold;');
     } else {
       try {
-        const uDocRef = doc(db, 'tenants', tenantId, 'users', newUserId);
+        // 1. Create the global invite record first so the auth flow can find it
+        const inviteRef = await addDoc(collection(db, 'invites'), {
+          email: email.toLowerCase(),
+          name,
+          role,
+          tenantId,
+          invitedBy: profile?.uid || 'system',
+          status: 'pending',
+          createdAt: serverTimestamp()
+        });
+        
+        // 2. Also write a placeholder user to the tenant's user collection for roster visibility
+        const uDocRef = doc(db, 'tenants', tenantId, 'users', inviteRef.id);
         await setDoc(uDocRef, {
           name,
-          email,
+          email: email.toLowerCase(),
           role,
           status: 'Invited',
-          invitedAt: new Date().toISOString(),
+          invitedAt: serverTimestamp(),
           createdAt: serverTimestamp()
         });
         
         // Trigger out-of-band communication stub log for production flow
         console.log(`%c[OUT-OF-BAND STUB] Real production invite email triggered via API to: ${email} [${role}]`, 'color: #0284c7; font-weight: bold;');
       } catch (err: any) {
-        handleFirestoreError(err, OperationType.CREATE, `tenants/${tenantId}/users/${newUserId}`);
+        handleFirestoreError(err, OperationType.CREATE, `invites`);
         throw err;
       }
     }
@@ -208,7 +220,7 @@ export const useTenantUsers = (tenantId: string | undefined) => {
     });
 
     return true;
-  }, [tenantId, users, isAdmin]);
+  }, [tenantId, users, isAdmin, profile]);
 
   // Edit user role method
   const updateUserRole = useCallback(async (userId: string, targetRole: UserRole) => {
@@ -258,7 +270,7 @@ export const useTenantUsers = (tenantId: string | undefined) => {
     });
 
     return true;
-  }, [tenantId, users, isAdmin]);
+  }, [tenantId, users, isAdmin, profile]);
 
   // Soft delete / deactivate user method
   const deactivateUser = useCallback(async (userId: string) => {
@@ -307,7 +319,7 @@ export const useTenantUsers = (tenantId: string | undefined) => {
     });
 
     return true;
-  }, [tenantId, users, isAdmin]);
+  }, [tenantId, users, isAdmin, profile]);
 
   // Soft activate user method
   const activateUser = useCallback(async (userId: string) => {
@@ -356,7 +368,7 @@ export const useTenantUsers = (tenantId: string | undefined) => {
     });
 
     return true;
-  }, [tenantId, users, isAdmin]);
+  }, [tenantId, users, isAdmin, profile]);
 
   return {
     users,

@@ -13,22 +13,30 @@ import {
   doc, 
   getDoc, 
   setDoc, 
+  collection,
+  query,
+  where,
+  getDocs,
+  updateDoc,
   serverTimestamp 
 } from 'firebase/firestore';
 import { UserProfile, UserRole, Tenant } from '../types';
 import { handleFirestoreError, OperationType } from '../firebaseErrors';
 
+export type AuthStatus = 'loading' | 'unauthenticated' | 'needs_onboarding' | 'active' | 'suspended';
+
 interface AuthContextType {
   user: FirebaseUser | null;
   profile: UserProfile | null;
-  loading: boolean;
   tenant: Tenant | null;
+  authStatus: AuthStatus;
   isSandboxMode: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   switchToSandboxRole: (role: UserRole) => void;
   initializeSandbox: (companyName: string) => void;
   updateProfileLocally: (updates: Partial<UserProfile>) => void;
+  setAuthStatus: (status: AuthStatus) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [tenant, setTenant] = useState<Tenant | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>('loading');
   const [isSandboxMode, setIsSandboxMode] = useState(false);
 
   // Attempt to load sandbox from LocalStorage to persist reload states
@@ -49,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setTenant(JSON.parse(sandboxTenant));
       setIsSandboxMode(true);
       localStorage.setItem('isSandboxMode', 'true');
-      setLoading(false);
+      setAuthStatus('active');
     } else {
       // Connect to authentic firebase stream
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -64,49 +72,95 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const uData = userSnap.data() as UserProfile;
               setProfile(uData);
 
-              // Get tenant config
+              // 1. Check Tenant User Status for Suspensions
+              let isActive = true;
+              const tenantUserRef = doc(db, 'tenants', uData.tenantId, 'users', firebaseUser.uid);
+              const tenantUserSnap = await getDoc(tenantUserRef);
+              
+              if (tenantUserSnap.exists()) {
+                const tData = tenantUserSnap.data();
+                if (tData.status === 'Inactive' || tData.status === 'Suspended') {
+                  isActive = false;
+                }
+              }
+
+              // 2. Get tenant config
               const tenantRef = doc(db, 'tenants', uData.tenantId);
               const tenantSnap = await getDoc(tenantRef);
               if (tenantSnap.exists()) {
                 setTenant(tenantSnap.data() as Tenant);
               }
+              
+              // 3. Lockout or Allow
+              setAuthStatus(isActive ? 'active' : 'suspended');
             } else {
-              // Sign-up flow: Auto-create tenant & user document for fresh Google Accounts
-              const newTenantId = `tenant_${firebaseUser.uid.substring(0, 8)}`;
-              const newTenant: Tenant = {
-                id: newTenantId,
-                companyName: `${firebaseUser.displayName || 'Industrial'}'s Forge`,
-                currency: '₹',
-                createdAt: new Date().toISOString()
-              };
+              // 1. Check if an invite exists for this email
+              const inviteQuery = query(
+                collection(db, 'invites'),
+                where('email', '==', firebaseUser.email),
+                where('status', '==', 'pending')
+              );
+              const inviteSnap = await getDocs(inviteQuery);
 
-              // Create tenant
-              await setDoc(doc(db, 'tenants', newTenantId), newTenant);
-              
-              // Create user
-              const newProfile: UserProfile = {
-                uid: firebaseUser.uid,
-                email: firebaseUser.email || '',
-                name: firebaseUser.displayName || 'Operator',
-                tenantId: newTenantId,
-                role: 'admin', // First user is the Owner/Admin
-                createdAt: new Date().toISOString()
-              };
+              if (!inviteSnap.empty) {
+                // 2a. ✅ INVITE PATH: Profile pre-created by admin, just activate it
+                const inviteDoc = inviteSnap.docs[0];
+                const inviteData = inviteDoc.data();
+                
+                const userProfile: UserProfile = {
+                  uid: firebaseUser.uid,
+                  email: firebaseUser.email || '',
+                  name: inviteData.name || firebaseUser.displayName || 'Operator',
+                  tenantId: inviteData.tenantId,
+                  role: inviteData.role,
+                  createdAt: new Date().toISOString()
+                };
 
-              await setDoc(doc(db, 'users', firebaseUser.uid), newProfile);
-              
-              setProfile(newProfile);
-              setTenant(newTenant);
+                // Create the global user doc
+                await setDoc(doc(db, 'users', firebaseUser.uid), userProfile);
+                
+                // Create the tenant-specific user doc
+                await setDoc(doc(db, 'tenants', inviteData.tenantId, 'users', firebaseUser.uid), {
+                  name: userProfile.name,
+                  email: userProfile.email,
+                  role: userProfile.role,
+                  status: 'Active',
+                  invitedAt: inviteData.createdAt,
+                  createdAt: serverTimestamp()
+                });
+
+                // Mark invite as accepted
+                await updateDoc(inviteDoc.ref, { 
+                  status: 'accepted', 
+                  acceptedAt: serverTimestamp(),
+                  acceptedByUid: firebaseUser.uid
+                });
+
+                setProfile(userProfile);
+                
+                // Get tenant config
+                const tenantRef = doc(db, 'tenants', inviteData.tenantId);
+                const tenantSnap = await getDoc(tenantRef);
+                if (tenantSnap.exists()) {
+                  setTenant(tenantSnap.data() as Tenant);
+                }
+                
+                setAuthStatus('active');
+              } else {
+                // 2b. ✅ OWNER BOOTSTRAP PATH: No profile, no invite → show onboarding
+                setAuthStatus('needs_onboarding');
+              }
             }
           } catch (e) {
             console.error('Error in Auth profile retrieval: ', e);
+            setAuthStatus('unauthenticated');
           }
         } else {
           setUser(null);
           setProfile(null);
           setTenant(null);
+          setAuthStatus('unauthenticated');
         }
-        setLoading(false);
       });
 
       return () => unsubscribe();
@@ -114,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signInWithGoogle = async () => {
-    setLoading(true);
+    setAuthStatus('loading');
     localStorage.removeItem('flowops_sandbox_profile');
     localStorage.removeItem('flowops_sandbox_tenant');
     localStorage.removeItem('isSandboxMode');
@@ -124,12 +178,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await signInWithPopup(auth, provider);
     } catch (e) {
       console.error('Google Auth Failed: ', e);
-      setLoading(false);
+      setAuthStatus('unauthenticated');
     }
   };
 
   const signOut = async () => {
-    setLoading(true);
+    setAuthStatus('loading');
     localStorage.removeItem('flowops_sandbox_profile');
     localStorage.removeItem('flowops_sandbox_tenant');
     localStorage.removeItem('isSandboxMode');
@@ -138,12 +192,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(null);
     setTenant(null);
     await firebaseSignOut(auth);
-    setLoading(false);
+    setAuthStatus('unauthenticated');
   };
 
-  // Instant sandbox trigger (so non-authentic layout runs beautifully)
   const initializeSandbox = (companyName: string) => {
-    setLoading(true);
+    setAuthStatus('loading');
     const mockTenantId = `tenant_demo_${Math.random().toString(36).substring(2, 7)}`;
     const mockTenant: Tenant = {
       id: mockTenantId,
@@ -171,10 +224,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(mockProfile);
     setTenant(mockTenant);
     setIsSandboxMode(true);
-    setLoading(false);
+    setAuthStatus('active');
   };
 
-  // Dynamic role switching for easier review & testing on sandbox
   const switchToSandboxRole = (role: UserRole) => {
     if (!profile) return;
     const updated = { ...profile, role };
@@ -182,7 +234,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isSandboxMode) {
       localStorage.setItem('flowops_sandbox_profile', JSON.stringify(updated));
     } else {
-      // Direct Firestore update if they are logged in with real auth to let rules check roles
       const userRef = doc(db, 'users', profile.uid);
       setDoc(userRef, { role }, { merge: true }).catch(err => {
         handleFirestoreError(err, OperationType.UPDATE, `users/${profile.uid}`);
@@ -203,14 +254,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider value={{ 
       user, 
       profile, 
-      loading, 
       tenant,
+      authStatus,
       isSandboxMode,
       signInWithGoogle, 
       signOut, 
       switchToSandboxRole, 
       initializeSandbox,
-      updateProfileLocally
+      updateProfileLocally,
+      setAuthStatus
     }}>
       {children}
     </AuthContext.Provider>

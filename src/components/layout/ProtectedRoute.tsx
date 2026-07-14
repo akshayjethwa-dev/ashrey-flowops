@@ -5,6 +5,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
 import { isSuperAdmin } from '../../utils/permissions';
+import { Lock, LogOut } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -17,10 +18,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   allowedRoles,
   requireSuperAdmin
 }) => {
-  const { user, profile, loading } = useAuth();
+  const { authStatus, profile, signOut } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  if (authStatus === 'loading') {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
         <div className="animate-spin h-8 w-8 border-3 border-sky-600 border-t-transparent rounded-full" />
@@ -31,9 +32,35 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Redirect to login if user is not authenticated (neither real firebase nor sandbox)
-  if (!user && !profile) {
+  // Enforce unauthenticated boundary
+  if (authStatus === 'unauthenticated') {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Enforce Suspension boundary 
+  if (authStatus === 'suspended') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full bg-white border border-slate-200 rounded-lg p-8 shadow-xs">
+          <div className="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5 font-bold">
+            <Lock className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 mb-2 uppercase tracking-wide">
+            Account Suspended
+          </h2>
+          <p className="text-sm text-slate-500 leading-relaxed mb-8">
+            Your access to this workspace has been deactivated by the system administrator. Please contact management for further assistance.
+          </p>
+          <button 
+            onClick={signOut} 
+            className="w-full bg-slate-900 hover:bg-slate-800 text-white h-11 rounded text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-2 transition-colors cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Sign Out Safely</span>
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // Check Super Admin constraints if targeted
@@ -61,7 +88,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
         <div className="max-w-md bg-white border border-slate-200 rounded-lg p-8 shadow-xs">
-          <div className="w-12 h-12 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-lg">
+          <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-lg">
             ⚠️
           </div>
           <h2 className="text-base font-bold text-slate-900 mb-2 uppercase tracking-wide">

@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useJobDetail } from '../../hooks/useProduction';
 import { sendWhatsAppNotification } from '../../utils/whatsapp';
+import { GuardedAction } from '../../components/layout/GuardedAction';
 import { 
   ArrowLeft, 
   Layers, 
@@ -87,7 +88,6 @@ export const JobDetailPage: React.FC = () => {
         profile.name || 'Operations Lead'
       );
 
-      // Trigger automatic WhatsApp update alert if contact details exit on parent Order card
       if (order?.phone) {
         const displayLabel = defaultStages.find(s => s.value === selectedStage)?.label || selectedStage;
         await sendWhatsAppNotification({
@@ -156,7 +156,6 @@ export const JobDetailPage: React.FC = () => {
   return (
     <div className="space-y-6 font-sans">
       
-      {/* Top action header */}
       <div className="flex items-center justify-between">
         <button
           onClick={() => navigate('/orders')}
@@ -171,9 +170,7 @@ export const JobDetailPage: React.FC = () => {
         </span>
       </div>
 
-      {/* Main Grid Header info */}
       <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-2xs space-y-4">
-        
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold uppercase">
@@ -195,7 +192,6 @@ export const JobDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Essential Job Parameters block */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-100 font-mono text-xs">
           <div className="space-y-1">
             <span className="text-[9px] text-slate-400 uppercase block">Yield Amount</span>
@@ -220,13 +216,10 @@ export const JobDetailPage: React.FC = () => {
 
       </div>
 
-      {/* Primary Detail Split columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* LEFT COLUMN: History log and active shop floor comments (2/3 width) */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Timeline Stages progress */}
           <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-2xs space-y-5">
             <h3 className="text-xs font-mono font-bold text-slate-450 uppercase tracking-wider flex items-center space-x-1.5">
               <Clock className="h-4.5 w-4.5 text-indigo-500" />
@@ -237,9 +230,7 @@ export const JobDetailPage: React.FC = () => {
               <div className="relative border-l-2 border-slate-105 pl-5 ml-2.5 space-y-6 pt-1">
                 {job.stagesHistory.map((elem, idx) => (
                   <div key={idx} className="relative group">
-                    {/* Ring Indicator */}
-                    <div className="absolute -left-[27px] mt-1.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-slate-900 group-hover:bg-indigo-600 transition" />
-                    
+                    <div className="absolute -left-6.75 mt-1.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-slate-900 group-hover:bg-indigo-600 transition" />
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
                         <span className="text-[10px] font-mono font-bold tracking-wider text-slate-450 uppercase">
@@ -249,13 +240,11 @@ export const JobDetailPage: React.FC = () => {
                           ({elem.updatedAt ? new Date(elem.updatedAt).toLocaleString() : 'System Base'})
                         </span>
                       </div>
-                      
                       {elem.notes && (
                         <p className="text-xs text-slate-800 font-mono bg-slate-50 border border-slate-101 p-2.5 rounded-lg">
                           {elem.notes}
                         </p>
                       )}
-
                       <div className="text-[10px] font-mono text-slate-500 font-bold">
                         Logged by: <span className="text-slate-700">{elem.updatedByName || elem.updatedBy}</span>
                       </div>
@@ -270,100 +259,116 @@ export const JobDetailPage: React.FC = () => {
             )}
           </div>
 
-          {/* New Shopfloor remark annotation trigger */}
           <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-2xs space-y-4">
             <h3 className="text-xs font-mono font-bold text-slate-450 uppercase tracking-wider flex items-center space-x-1.5">
               <MessageSquare className="h-4.5 w-4.5 text-sky-500" />
               <span>Record bespoke telemetry / foreman update</span>
             </h3>
 
-            <form onSubmit={handlePostComment} className="space-y-3">
-              <textarea
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Include custom measurement telemetry specifications, caliper readings, temperature logs, or structural exceptions..."
-                rows={3}
-                required
-                className="w-full text-xs font-mono bg-slate-50 hover:bg-white rounded-lg p-3 border border-slate-200 focus:bg-white focus:outline-hidden leading-relaxed"
-              />
-
-              {feedback && (
-                <div className="p-2.5 bg-sky-50 border border-sky-150 text-[11px] text-sky-850 rounded font-mono">
-                  {feedback}
+            {/* 🔒 RBAC Guard: Production logging */}
+            <GuardedAction 
+              action="manage:production"
+              fallback={
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg text-xs font-mono text-slate-500 text-center">
+                  Only authorized shopfloor staff can append telemetry logs.
                 </div>
-              )}
+              }
+            >
+              <form onSubmit={handlePostComment} className="space-y-3">
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Include custom measurement telemetry specifications, caliper readings, temperature logs, or structural exceptions..."
+                  rows={3}
+                  required
+                  className="w-full text-xs font-mono bg-slate-50 hover:bg-white rounded-lg p-3 border border-slate-200 focus:bg-white focus:outline-hidden leading-relaxed"
+                />
 
-              <div className="flex justify-end select-none">
-                <button
-                  type="submit"
-                  disabled={addingComment}
-                  className="bg-slate-900 border border-slate-950 hover:bg-slate-850 text-white font-mono text-[10px] font-extrabold uppercase tracking-widest px-4 py-2.5 rounded-lg cursor-pointer transition flex items-center space-x-1.5"
-                >
-                  <Plus className="h-3.5 w-3.5 text-slate-300" />
-                  <span>{addingComment ? 'Submitting notes...' : 'Append Operator Log'}</span>
-                </button>
-              </div>
-            </form>
+                {feedback && (
+                  <div className="p-2.5 bg-sky-50 border border-sky-150 text-[11px] text-sky-850 rounded font-mono">
+                    {feedback}
+                  </div>
+                )}
+
+                <div className="flex justify-end select-none">
+                  <button
+                    type="submit"
+                    disabled={addingComment}
+                    className="bg-slate-900 border border-slate-950 hover:bg-slate-850 text-white font-mono text-[10px] font-extrabold uppercase tracking-widest px-4 py-2.5 rounded-lg cursor-pointer transition flex items-center space-x-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5 text-slate-300" />
+                    <span>{addingComment ? 'Submitting notes...' : 'Append Operator Log'}</span>
+                  </button>
+                </div>
+              </form>
+            </GuardedAction>
           </div>
 
         </div>
 
-        {/* RIGHT COLUMN: Action parameters + context links to quotes & rfqs (1/3 width) */}
         <div className="space-y-6">
 
-          {/* Workshop Control Card: Change production stage */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-4">
             <h4 className="text-xs uppercase font-mono font-bold text-slate-400 tracking-wider flex items-center space-x-1.5">
               <Layers className="h-4 w-4 text-indigo-500" />
               <span>Supervisor Stage Control</span>
             </h4>
 
-            <form onSubmit={handleStageChange} className="space-y-4">
-              <div>
-                <label className="text-[10px] uppercase font-mono font-bold text-slate-500 block mb-1.5">Action Stage</label>
-                <select
-                  value={selectedStage}
-                  onChange={(e) => setSelectedStage(e.target.value)}
-                  className="w-full text-xs font-mono bg-slate-50 hover:bg-white p-2.5 border rounded-lg focus:bg-white focus:outline-hidden"
-                >
-                  {defaultStages.map(st => (
-                    <option key={st.value} value={st.value}>{st.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] uppercase font-mono font-bold text-slate-500 block mb-1.5">Process Note / Reason</label>
-                <textarea
-                  value={stageChangeNotes}
-                  onChange={(e) => setStageChangeNotes(e.target.value)}
-                  placeholder="Notes explaining calipers/QA/inspection outcomes..."
-                  rows={2}
-                  className="w-full text-xs font-mono bg-slate-50 hover:bg-white p-2.5 border rounded-lg focus:bg-white focus:outline-hidden"
-                />
-              </div>
-
-              {stageFeedback && (
-                <div className="p-2.5 bg-indigo-50 border border-indigo-150 text-[10px] text-indigo-850 rounded font-mono">
-                  {stageFeedback}
+            {/* 🔒 RBAC Guard: Stage Control */}
+            <GuardedAction 
+              action="manage:production"
+              fallback={
+                <div className="p-4 border border-dashed rounded-lg text-xs font-mono text-slate-500 text-center">
+                  Production stage updates are restricted to authorized shopfloor crew.
                 </div>
-              )}
+              }
+            >
+              <form onSubmit={handleStageChange} className="space-y-4">
+                <div>
+                  <label className="text-[10px] uppercase font-mono font-bold text-slate-500 block mb-1.5">Action Stage</label>
+                  <select
+                    value={selectedStage}
+                    onChange={(e) => setSelectedStage(e.target.value)}
+                    className="w-full text-xs font-mono bg-slate-50 hover:bg-white p-2.5 border rounded-lg focus:bg-white focus:outline-hidden"
+                  >
+                    {defaultStages.map(st => (
+                      <option key={st.value} value={st.value}>{st.label}</option>
+                    ))}
+                  </select>
+                </div>
 
-              <button
-                type="submit"
-                disabled={updatingStage || selectedStage === job.currentStage}
-                className="w-full text-white font-mono text-[10px] font-extrabold uppercase tracking-widest py-2.5 rounded-lg cursor-pointer transition flex items-center justify-center space-x-1.5 disabled:opacity-50"
-                style={{ 
-                  backgroundColor: selectedStage === job.currentStage ? '#e2e8f0' : '#4f46e5', 
-                  color: selectedStage === job.currentStage ? '#94a3b8' : '#ffffff' 
-                }}
-              >
-                <span>{updatingStage ? 'Updating Segment...' : 'Update Production Stage'}</span>
-              </button>
-            </form>
+                <div>
+                  <label className="text-[10px] uppercase font-mono font-bold text-slate-500 block mb-1.5">Process Note / Reason</label>
+                  <textarea
+                    value={stageChangeNotes}
+                    onChange={(e) => setStageChangeNotes(e.target.value)}
+                    placeholder="Notes explaining calipers/QA/inspection outcomes..."
+                    rows={2}
+                    className="w-full text-xs font-mono bg-slate-50 hover:bg-white p-2.5 border rounded-lg focus:bg-white focus:outline-hidden"
+                  />
+                </div>
+
+                {stageFeedback && (
+                  <div className="p-2.5 bg-indigo-50 border border-indigo-150 text-[10px] text-indigo-850 rounded font-mono">
+                    {stageFeedback}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={updatingStage || selectedStage === job.currentStage}
+                  className="w-full text-white font-mono text-[10px] font-extrabold uppercase tracking-widest py-2.5 rounded-lg cursor-pointer transition flex items-center justify-center space-x-1.5 disabled:opacity-50"
+                  style={{ 
+                    backgroundColor: selectedStage === job.currentStage ? '#e2e8f0' : '#4f46e5', 
+                    color: selectedStage === job.currentStage ? '#94a3b8' : '#ffffff' 
+                  }}
+                >
+                  <span>{updatingStage ? 'Updating Segment...' : 'Update Production Stage'}</span>
+                </button>
+              </form>
+            </GuardedAction>
           </div>
           
-          {/* Context connections card */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-4">
             <h4 className="text-xs uppercase font-mono font-bold text-slate-400 tracking-wider flex items-center space-x-1.5">
               <Briefcase className="h-4 w-4 text-indigo-500" />
@@ -371,8 +376,6 @@ export const JobDetailPage: React.FC = () => {
             </h4>
 
             <div className="space-y-3.5 text-xs font-mono">
-              
-              {/* Linked Client B2B customer record */}
               <div className="p-3 bg-slate-50 border border-slate-105 rounded-lg space-y-1">
                 <span className="text-[9px] text-slate-400 uppercase block">Associated Customer Liaison</span>
                 <span className="font-bold text-slate-900 block font-sans">{order?.customerName || 'B2B Client'}</span>
@@ -381,7 +384,6 @@ export const JobDetailPage: React.FC = () => {
                 )}
               </div>
 
-              {/* RFQ reference link */}
               {order?.quoteId && (
                 <div className="p-3 bg-slate-50 border border-slate-105 rounded-lg flex items-center justify-between">
                   <div>
@@ -398,7 +400,6 @@ export const JobDetailPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Estimated Invoice Pricing element */}
               <div className="p-3.5 bg-indigo-50/40 border border-indigo-100 rounded-lg space-y-1">
                 <span className="text-[9px] text-slate-450 uppercase block">Earmarked Contract Valuation</span>
                 <div className="text-indigo-950 font-black text-base tracking-tight">
@@ -406,11 +407,9 @@ export const JobDetailPage: React.FC = () => {
                 </div>
                 <span className="text-[9px] text-slate-500 block leading-tight">GST components and handling levies fully verified.</span>
               </div>
-
             </div>
           </div>
 
-          {/* Card: Job documents & engineering drafts */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-4">
             <h4 className="text-xs uppercase font-mono font-bold text-slate-400 tracking-wider flex items-center space-x-1.5">
               <FileSymlink className="h-4 w-4 text-sky-500" />
@@ -426,19 +425,22 @@ export const JobDetailPage: React.FC = () => {
                   userProfile={profile} 
                   userRole={profile?.role} 
                 />
-                <div className="pt-2">
-                  <FileUploader 
-                    entityType="job" 
-                    entityId={jobId!} 
-                    tenantId={tenant.id} 
-                    userProfile={profile} 
-                  />
-                </div>
+                
+                {/* 🔒 RBAC Guard: Job file uploads */}
+                <GuardedAction action="manage:production">
+                  <div className="pt-2">
+                    <FileUploader 
+                      entityType="job" 
+                      entityId={jobId!} 
+                      tenantId={tenant.id} 
+                      userProfile={profile} 
+                    />
+                  </div>
+                </GuardedAction>
               </>
             )}
           </div>
 
-          {/* Quick status progress guidelines */}
           <div className="bg-slate-900 text-slate-300 rounded-xl p-5 border border-slate-800 text-xs leading-relaxed space-y-3 font-mono">
             <span className="text-[9px] font-bold text-sky-450 uppercase block tracking-widest">
               Standard operations procedure

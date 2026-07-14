@@ -234,10 +234,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isSandboxMode) {
       localStorage.setItem('flowops_sandbox_profile', JSON.stringify(updated));
     } else {
-      const userRef = doc(db, 'users', profile.uid);
-      setDoc(userRef, { role }, { merge: true }).catch(err => {
-        handleFirestoreError(err, OperationType.UPDATE, `users/${profile.uid}`);
-      });
+      // 🔒 ACTION 3.1: Disabled direct self-role manipulation from the client
+      console.warn('Action blocked: Role updates in production must be managed exclusively by an admin via the Roster interface.');
     }
   };
 

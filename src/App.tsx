@@ -84,7 +84,7 @@ const AppRouter = () => {
         <Route 
           path="/onboarding" 
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute requiredAction="manage:settings">
               <OnboardingWizard />
             </ProtectedRoute>
           } 
@@ -99,11 +99,11 @@ const AppRouter = () => {
           }
         >
 
-          {/* Core operator dashboards with role checking permissions */}
+          {/* Core operator dashboards with action-based permissions */}
           <Route 
             path="dashboard" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'management']}>
+              <ProtectedRoute requiredAction="view:dashboard">
                 <DashboardPage />
               </ProtectedRoute>
             } 
@@ -112,7 +112,7 @@ const AppRouter = () => {
           <Route 
             path="rfqs" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'sales', 'management']}>
+              <ProtectedRoute requiredAction="view:rfq">
                 <RFQsPage />
               </ProtectedRoute>
             } 
@@ -121,7 +121,7 @@ const AppRouter = () => {
           <Route 
             path="rfqs/new" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'sales', 'management']}>
+              <ProtectedRoute requiredAction="manage:rfq">
                 <RfqCreateForm />
               </ProtectedRoute>
             } 
@@ -130,7 +130,7 @@ const AppRouter = () => {
           <Route 
             path="rfqs/:rfqId" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'sales', 'management']}>
+              <ProtectedRoute requiredAction="view:rfq">
                 <RfqDetailPage />
               </ProtectedRoute>
             } 
@@ -139,7 +139,7 @@ const AppRouter = () => {
           <Route 
             path="rfqs/:rfqId/quotation" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'sales', 'management']}>
+              <ProtectedRoute requiredAction="manage:quotation">
                 <QuotationEditorPage />
               </ProtectedRoute>
             } 
@@ -148,7 +148,7 @@ const AppRouter = () => {
           <Route 
             path="orders" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'production', 'management']}>
+              <ProtectedRoute requiredAction="view:order">
                 <OrdersPage />
               </ProtectedRoute>
             } 
@@ -157,7 +157,7 @@ const AppRouter = () => {
           <Route 
             path="orders/:jobId" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'production', 'management']}>
+              <ProtectedRoute requiredAction="view:order">
                 <JobDetailPage />
               </ProtectedRoute>
             } 
@@ -166,7 +166,7 @@ const AppRouter = () => {
           <Route 
             path="dispatch" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'dispatch', 'management']}>
+              <ProtectedRoute requiredAction="view:dispatch">
                 <DispatchPage />
               </ProtectedRoute>
             } 
@@ -175,7 +175,7 @@ const AppRouter = () => {
           <Route 
             path="dispatch/:dispatchId" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'dispatch', 'management']}>
+              <ProtectedRoute requiredAction="view:dispatch">
                 <DispatchDetailPage />
               </ProtectedRoute>
             } 
@@ -184,7 +184,7 @@ const AppRouter = () => {
           <Route 
             path="customers" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'sales', 'management']}>
+              <ProtectedRoute requiredAction="view:customers">
                 <CustomersListPage />
               </ProtectedRoute>
             } 
@@ -193,7 +193,7 @@ const AppRouter = () => {
           <Route 
             path="whatsapp-inbox" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'sales', 'management']}>
+              <ProtectedRoute requiredAction="view:customers">
                 <WhatsAppInboxPage />
               </ProtectedRoute>
             } 
@@ -202,7 +202,7 @@ const AppRouter = () => {
           <Route 
             path="payments" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'sales', 'management']}>
+              <ProtectedRoute requiredAction="view:customers">
                 <PaymentsTrackerPage />
               </ProtectedRoute>
             } 
@@ -211,7 +211,7 @@ const AppRouter = () => {
           <Route 
             path="customers/:customerId" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'sales', 'management']}>
+              <ProtectedRoute requiredAction="view:customers">
                 <CustomerDetailPage />
               </ProtectedRoute>
             } 
@@ -220,7 +220,7 @@ const AppRouter = () => {
           <Route 
             path="inventory" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'production', 'management', 'sales', 'dispatch']}>
+              <ProtectedRoute requiredAction="view:inventory">
                 <InventoryPage />
               </ProtectedRoute>
             } 
@@ -229,7 +229,7 @@ const AppRouter = () => {
           <Route 
             path="reports" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'management', 'sales', 'production', 'dispatch']}>
+              <ProtectedRoute requiredAction="view:reports">
                 <ReportsPage />
               </ProtectedRoute>
             } 
@@ -239,7 +239,7 @@ const AppRouter = () => {
           <Route 
             path="settings/tenant" 
             element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute requiredAction="manage:settings">
                 <TenantSettingsPage />
               </ProtectedRoute>
             } 
@@ -248,7 +248,7 @@ const AppRouter = () => {
           <Route 
             path="settings/production-stages" 
             element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute requiredAction="manage:settings">
                 <ProductionStagesPage />
               </ProtectedRoute>
             } 
@@ -257,7 +257,7 @@ const AppRouter = () => {
           <Route 
             path="settings/whatsapp" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'sales']}>
+              <ProtectedRoute requiredAction="manage:settings">
                 <WhatsAppPage />
               </ProtectedRoute>
             } 
@@ -266,7 +266,7 @@ const AppRouter = () => {
           <Route 
             path="settings/users" 
             element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute requiredAction="manage:users">
                 <UsersRosterPage />
               </ProtectedRoute>
             } 
@@ -275,7 +275,7 @@ const AppRouter = () => {
           <Route 
             path="settings/users/invite" 
             element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute requiredAction="manage:users">
                 <InviteUserForm />
               </ProtectedRoute>
             } 
@@ -284,7 +284,7 @@ const AppRouter = () => {
           <Route 
             path="activity" 
             element={
-              <ProtectedRoute allowedRoles={['admin', 'management']}>
+              <ProtectedRoute requiredAction="view:reports">
                 <ActivityPage />
               </ProtectedRoute>
             } 

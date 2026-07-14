@@ -242,6 +242,7 @@ service cloud.firestore {
 
       match /users/{userId} {
         allow read: if isTenantMember(tenantId);
+        // 🔒 Explicitly restrict tenant-side role manipulation to admins
         allow write: if isTenantMember(tenantId) && getUserRole() == 'admin' && isValidTenantUser(incoming());
       }
 
@@ -295,9 +296,9 @@ service cloud.firestore {
       // Allow a user to create their own first profile registration
       allow create: if request.auth != null && request.auth.uid == userId && isValidUser(incoming());
       allow update: if isSignedIn() && (
-        // Allow updating own name/phone (blocking self-elevating role changes)
+        // 🔒 SECURITY GATE: Allow updating own name/phone ONLY IF the incoming role matches existing role (blocks self-elevating role changes)
         (request.auth.uid == userId && incoming().tenantId == existing().tenantId && incoming().role == existing().role && isValidUser(incoming())) ||
-        // Allow Admins to update user fields
+        // 🔒 SECURITY GATE: Allow ONLY designated Admins to update user fields including roles
         (getUserTenantId() == existing().tenantId && getUserRole() == 'admin' && incoming().tenantId == existing().tenantId && isValidUser(incoming()))
       );
       allow delete: if false;

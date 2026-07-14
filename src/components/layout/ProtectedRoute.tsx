@@ -4,18 +4,20 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
-import { isSuperAdmin } from '../../utils/permissions';
+import { isSuperAdmin, canPerformAction, PermissionAction } from '../../utils/permissions';
 import { Lock, LogOut } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: UserRole[];
+  requiredAction?: PermissionAction;
   requireSuperAdmin?: boolean;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
   children, 
   allowedRoles,
+  requiredAction,
   requireSuperAdmin
 }) => {
   const { authStatus, profile, signOut } = useAuth();
@@ -32,12 +34,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Enforce unauthenticated boundary
   if (authStatus === 'unauthenticated') {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Enforce Suspension boundary 
   if (authStatus === 'suspended') {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
@@ -49,7 +49,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             Account Suspended
           </h2>
           <p className="text-sm text-slate-500 leading-relaxed mb-8">
-            Your access to this workspace has been deactivated by the system administrator. Please contact management for further assistance.
+            Your access to this workspace has been deactivated by the system administrator.
           </p>
           <button 
             onClick={signOut} 
@@ -63,28 +63,17 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Check Super Admin constraints if targeted
   if (requireSuperAdmin && !isSuperAdmin(profile)) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-        <div className="max-w-md bg-white border border-slate-200 rounded-lg p-8 shadow-xs">
-          <div className="w-12 h-12 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-lg">
-            🚨
-          </div>
-          <h2 className="text-base font-bold text-red-650 mb-2 uppercase tracking-wide">
-            Super-Admin Required
-          </h2>
-          <p className="text-xs text-slate-500 leading-relaxed mb-6">
-            This module is reserved exclusively for the core Ashrey Systems administration team.
-          </p>
-          <Navigate to="/dashboard" replace />
-        </div>
-      </div>
-    );
+    return <Navigate to="/dashboard" replace />;
   }
 
-  // Check Role Permissions constraints if targeted
+  // 🔒 RBAC Check by specific allowed roles (Legacy fallback)
   if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // 🔒 Strict RBAC Check by actionable permissions
+  if (requiredAction && profile && !canPerformAction(profile, requiredAction)) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
         <div className="max-w-md bg-white border border-slate-200 rounded-lg p-8 shadow-xs">
@@ -92,10 +81,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             ⚠️
           </div>
           <h2 className="text-base font-bold text-slate-900 mb-2 uppercase tracking-wide">
-            Access Restricted
+            Clearance Denied
           </h2>
           <p className="text-xs text-slate-500 leading-relaxed mb-6">
-            Your current account role ({profile.role.toUpperCase()}) does not have permissions to access this administrative board.
+            Your profile lacks the explicit "{requiredAction}" permission required for this module.
           </p>
           <Navigate to="/dashboard" replace />
         </div>

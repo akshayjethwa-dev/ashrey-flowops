@@ -89,7 +89,7 @@ export const Login: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 selection:bg-sky-500 selection:text-white font-sans">
       <div className="w-full max-w-md bg-white border border-slate-200 rounded-lg shadow-xs p-8 relative overflow-hidden">
         {/* Decorative subtle background grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f080_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f080_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f080_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f080_1px,transparent_1px)] bg-size-[16px_16px] pointer-events-none" />
 
         <div className="relative z-10">
           {/* Logo Heading */}
@@ -172,9 +172,9 @@ export const Login: React.FC = () => {
 
           {/* Alternative Auth / Sandbox and Google logins */}
           <div className="relative flex py-5 items-center">
-            <div className="flex-grow border-t border-slate-100" />
-            <span className="flex-shrink mx-3 text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase">Demo & Review Tools</span>
-            <div className="flex-grow border-t border-slate-100" />
+            <div className="grow border-t border-slate-100" />
+            <span className="shrink mx-3 text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase">Demo & Review Tools</span>
+            <div className="grow border-t border-slate-100" />
           </div>
 
           <div className="space-y-3">

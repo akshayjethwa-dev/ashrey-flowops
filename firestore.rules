@@ -222,7 +222,8 @@ service cloud.firestore {
     // 1. Tenants Collection
     match /tenants/{tenantId} {
       allow read, write: if isSuperAdmin();
-      allow get: if isSignedIn();
+      // 🔒 FIXED: Restricted from `isSignedIn()` to strict tenant membership
+      allow get: if isTenantMember(tenantId);
       allow create: if isSignedIn() && isValidId(tenantId) && isValidTenant(incoming());
       allow update: if isSignedIn() && isValidId(tenantId) && isTenantMember(tenantId) && getUserRole() == 'admin' && isValidTenant(incoming());
       allow delete: if false;
@@ -291,7 +292,8 @@ service cloud.firestore {
 
     // 2. Users Collection
     match /users/{userId} {
-      allow get: if isSignedIn();
+      // 🔒 FIXED: Only allow reading if it's the user's own profile OR they belong to the same tenant sandbox
+      allow get: if isSignedIn() && (request.auth.uid == userId || resource.data.tenantId == getUserTenantId());
       allow list: if isSignedIn() && resource.data.tenantId == getUserTenantId();
       // Allow a user to create their own first profile registration
       allow create: if request.auth != null && request.auth.uid == userId && isValidUser(incoming());

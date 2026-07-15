@@ -18,7 +18,8 @@ import {
   where,
   getDocs,
   updateDoc,
-  serverTimestamp 
+  serverTimestamp,
+  writeBatch
 } from 'firebase/firestore';
 import { UserProfile, UserRole, Tenant } from '../types';
 import { handleFirestoreError, OperationType } from '../firebaseErrors';
@@ -147,8 +148,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 
                 setAuthStatus('active');
               } else {
-                // 2b. ✅ OWNER BOOTSTRAP PATH: No profile, no invite → show onboarding
-                setAuthStatus('needs_onboarding');
+                // 2b. ✅ OWNER BOOTSTRAP PATH: No profile, no invite → create empty tenant and show onboarding
+                
+                // Generate a unique ID for the new company workspace
+                const newTenantId = `tnt_${Date.now()}_${firebaseUser.uid.substring(0, 6)}`;
+                
+                const userProfile: UserProfile = {
+                  uid: firebaseUser.uid,
+                  email: firebaseUser.email || '',
+                  name: firebaseUser.displayName || 'Workspace Owner',
+                  tenantId: newTenantId,
+                  role: 'admin', // The creator is automatically an admin
+                  createdAt: new Date().toISOString()
+                };
+
+                const newTenant: Tenant = {
+                  id: newTenantId,
+                  companyName: '', 
+                  gstin: '',
+                  address: '',
+                  currency: 'INR (₹)',
+                  createdAt: new Date().toISOString()
+                };
+
+                try {
+                  // FIX: Execute as an atomic write batch so firestore rules read the user state simultaneously 
+                  const batch = writeBatch(db);
+
+                  // 1. Save global user identity
+                  batch.set(doc(db, 'users', firebaseUser.uid), userProfile);
+                  
+                  // 2. Save the empty shell tenant document
+                  batch.set(doc(db, 'tenants', newTenantId), {
+                    id: newTenantId, // Required by isValidTenant
+                    companyName: 'New Company', // Required by isValidTenant
+                    createdAt: serverTimestamp(),
+                    onboardingCompleted: false
+                  });
+
+                  // 3. Save user inside the tenant's roster
+                  batch.set(doc(db, 'tenants', newTenantId, 'users', firebaseUser.uid), {
+                    name: userProfile.name,
+                    email: userProfile.email,
+                    role: 'admin',
+                    status: 'Active',
+                    createdAt: serverTimestamp()
+                  });
+
+                  await batch.commit();
+
+                  setProfile(userProfile);
+                  setTenant(newTenant);
+                  setAuthStatus('needs_onboarding');
+                } catch (bootstrapErr) {
+                  console.error('Failed to provision workspace shell:', bootstrapErr);
+                  setAuthStatus('unauthenticated');
+                }
               }
             }
           } catch (e) {
@@ -234,7 +289,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isSandboxMode) {
       localStorage.setItem('flowops_sandbox_profile', JSON.stringify(updated));
     } else {
-      // 🔒 ACTION 3.1: Disabled direct self-role manipulation from the client
       console.warn('Action blocked: Role updates in production must be managed exclusively by an admin via the Roster interface.');
     }
   };

@@ -130,6 +130,10 @@ export const OnboardingWizard: React.FC = () => {
           setWhatsappPhone(saved.whatsappPhone || '');
         }
       }
+    } else {
+      // Pre-fill for brand new users even if tenantConfig doesn't exist yet
+      setCompanyName(tenant?.companyName || '');
+      setContactEmail(profile?.email || '');
     }
   }, [tenantConfig, tenant, profile]);
 
@@ -162,7 +166,6 @@ export const OnboardingWizard: React.FC = () => {
 
   // Intermediate state persistence function
   const saveStateToConfig = async (nextStepIndex: number) => {
-    if (!tenantConfig) return;
     setSaving(true);
     setWizardError(null);
 
@@ -192,17 +195,21 @@ export const OnboardingWizard: React.FC = () => {
         whatsappPhone
       };
 
+      // Detect browser timezone as a safe fallback for Error 1
+      const defaultTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
+
       await saveTenantConfig({
-        ...tenantConfig,
+        ...(tenantConfig || {} as any), // Safely spread existing config
         tenantName: companyName,
         address,
         gstNumber,
         contactEmail,
         contactPhone,
         defaultCurrency: currency,
+        timeZone: tenantConfig?.timeZone || defaultTimeZone, // FIX 1: Ensures strict string assignment
         onboardingCompleted: false,
         onboardingState: updatedOnboardingState
-      });
+      } as any);
 
       setCurrentStep(nextStepIndex);
     } catch (err: any) {
@@ -332,21 +339,23 @@ export const OnboardingWizard: React.FC = () => {
 
   // FINAL FINISH ACTION
   const handleFinish = async () => {
-    if (!tenantConfig) return;
     setSaving(true);
     try {
+      const defaultTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
+
       // Set completed flag inside config
       await saveTenantConfig({
-        ...tenantConfig,
+        ...(tenantConfig || {} as any), // Safely spread existing config
         tenantName: companyName,
         address,
         gstNumber,
         contactEmail,
         contactPhone,
         defaultCurrency: currency,
+        timeZone: tenantConfig?.timeZone || defaultTimeZone, // FIX 1: Ensures strict string assignment
         onboardingCompleted: true,
-        onboardingState: null // Clean up detailed onboarding variables to save database storage space
-      });
+        onboardingState: undefined // FIX 2: Changed 'null' to 'undefined' to satisfy TS Optional type
+      } as any);
 
       // Erase sandbox skipping flag inside session storage
       sessionStorage.removeItem('onboarding_skipped');
@@ -485,7 +494,7 @@ export const OnboardingWizard: React.FC = () => {
       </header>
 
       {/* Main Wizard Area Viewport */}
-      <main className="flex-grow p-4 md:p-8 flex flex-col justify-center items-center">
+      <main className="grow p-4 md:p-8 flex flex-col justify-center items-center">
         
         {/* Progress Pipeline Dots */}
         <div className="max-w-3xl w-full flex items-center justify-between mb-8 px-4">
@@ -502,7 +511,7 @@ export const OnboardingWizard: React.FC = () => {
               </div>
               {st < 6 && (
                 <div 
-                  className={`flex-grow h-0.5 mx-2 transition-colors ${
+                  className={`grow h-0.5 mx-2 transition-colors ${
                     currentStep > st ? 'bg-sky-500' : 'bg-slate-850'
                   }`}
                 />
@@ -957,7 +966,7 @@ export const OnboardingWizard: React.FC = () => {
                     type="checkbox"
                     checked={whatsappEnabled}
                     onChange={(e) => setWhatsappEnabled(e.target.checked)}
-                    className="h-5 w-5 bg-slate-900 border border-slate-800 rounded focus:ring-sky-500 checked:bg-sky-500 rounded-sm shrink-0 cursor-pointer"
+                    className="h-5 w-5 bg-slate-900 border border-slate-800 rounded focus:ring-sky-500 checked:bg-sky-500 shrink-0 cursor-pointer"
                   />
                 </div>
 
@@ -1011,7 +1020,7 @@ export const OnboardingWizard: React.FC = () => {
             {/* ==================== STEP 6: FINISH CELEBRATION ==================== */}
             {currentStep === 6 && (
               <div className="space-y-6 text-center py-6 animate-fade-in font-sans">
-                <div className="h-16 w-16 bg-gradient-to-tr from-sky-400 to-sky-600 rounded-2xl flex items-center justify-center text-slate-950 font-black mx-auto shadow-sky-500/20 shadow-xl scale-110 mb-4 animate-bounce">
+                <div className="h-16 w-16 bg-linear-to-tr from-sky-400 to-sky-600 rounded-2xl flex items-center justify-center text-slate-950 font-black mx-auto shadow-sky-500/20 shadow-xl scale-110 mb-4 animate-bounce">
                   <Sparkles className="h-8 w-8 text-slate-950" />
                 </div>
 
@@ -1101,7 +1110,7 @@ export const OnboardingWizard: React.FC = () => {
                   onClick={handleFinish}
                   className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-6 py-4.5 rounded-lg flex items-center justify-center space-x-1.5 cursor-pointer text-sm uppercase tracking-widest transition-all shadow-xl shadow-emerald-500/10 active:scale-95 h-13"
                 >
-                  <Check className="h-4.5 w-4.5 text-slate-950 stroke-[3]" />
+                  <Check className="h-4.5 w-4.5 text-slate-950 stroke-3" />
                   <span>{saving ? 'Finalizing Profile Configurations...' : 'Launch Shard Dashboard'}</span>
                 </button>
               )}

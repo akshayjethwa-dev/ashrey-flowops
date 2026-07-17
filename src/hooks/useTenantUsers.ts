@@ -75,13 +75,26 @@ const DEFAULT_SANDBOX_USERS: TenantUser[] = [
   }
 ];
 
-export const useTenantUsers = (tenantId: string | undefined) => {
+export const useTenantUsers = (providedTenantId?: string) => {
   const [users, setUsers] = useState<TenantUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { profile } = useAuth();
+  
+  // Cast useAuth to any to safely extract fallbacks without TS strict block
+  const authContext = useAuth() as any;
+  const profile = authContext?.profile;
+  const tenant = authContext?.tenant;
 
-  const isAdmin = profile?.role === 'admin';
+  const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
+  
+  // Robust tenantId resolution: check provided -> check profile -> check stringified tenant -> fallback to sandbox
+  const tenantId = providedTenantId 
+    || profile?.tenantId 
+    || (typeof tenant === 'string' ? tenant : tenant?.id) 
+    || (isSandbox ? 'demo_tenant' : undefined);
+
+  // Allow sandbox mode to bypass strict admin blocks for testing
+  const isAdmin = profile?.role === 'admin' || isSandbox;
 
   useEffect(() => {
     if (!tenantId) {
@@ -91,8 +104,6 @@ export const useTenantUsers = (tenantId: string | undefined) => {
 
     setLoading(true);
     setError(null);
-
-    const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
 
     if (isSandbox) {
       try {
@@ -142,16 +153,17 @@ export const useTenantUsers = (tenantId: string | undefined) => {
 
       return unsubscribe;
     }
-  }, [tenantId]);
+  }, [tenantId, isSandbox]);
 
   // Invite user method
   const inviteUser = useCallback(async (name: string, email: string, role: UserRole) => {
-    if (!tenantId) return false;
+    if (!tenantId) {
+      throw new Error('Tenant context is missing. Cannot invite user right now.');
+    }
     if (!isAdmin) {
       throw new Error('Only Tenant Administrators possess permission to issue workspace credentials.');
     }
 
-    const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
     const newUserId = `user_invited_${Date.now()}`;
 
     if (isSandbox) {
@@ -220,16 +232,16 @@ export const useTenantUsers = (tenantId: string | undefined) => {
     });
 
     return true;
-  }, [tenantId, users, isAdmin, profile]);
+  }, [tenantId, users, isAdmin, profile, isSandbox]);
 
   // Edit user role method
   const updateUserRole = useCallback(async (userId: string, targetRole: UserRole) => {
-    if (!tenantId) return false;
+    if (!tenantId) {
+      throw new Error('Tenant context is missing.');
+    }
     if (!isAdmin) {
       throw new Error('Only Company Owners hold permissions to tweak operative system roles.');
     }
-
-    const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
 
     const uInfo = users.find(u => u.id === userId);
 
@@ -270,16 +282,16 @@ export const useTenantUsers = (tenantId: string | undefined) => {
     });
 
     return true;
-  }, [tenantId, users, isAdmin, profile]);
+  }, [tenantId, users, isAdmin, profile, isSandbox]);
 
   // Soft delete / deactivate user method
   const deactivateUser = useCallback(async (userId: string) => {
-    if (!tenantId) return false;
+    if (!tenantId) {
+      throw new Error('Tenant context is missing.');
+    }
     if (!isAdmin) {
       throw new Error('Only Tenant Administrators can suspend active operator credentials.');
     }
-
-    const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
 
     const uInfo = users.find(u => u.id === userId);
 
@@ -319,16 +331,16 @@ export const useTenantUsers = (tenantId: string | undefined) => {
     });
 
     return true;
-  }, [tenantId, users, isAdmin, profile]);
+  }, [tenantId, users, isAdmin, profile, isSandbox]);
 
   // Soft activate user method
   const activateUser = useCallback(async (userId: string) => {
-    if (!tenantId) return false;
+    if (!tenantId) {
+      throw new Error('Tenant context is missing.');
+    }
     if (!isAdmin) {
       throw new Error('Only Tenant Administrators can enable operator credentials.');
     }
-
-    const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
 
     const uInfo = users.find(u => u.id === userId);
 
@@ -368,7 +380,7 @@ export const useTenantUsers = (tenantId: string | undefined) => {
     });
 
     return true;
-  }, [tenantId, users, isAdmin, profile]);
+  }, [tenantId, users, isAdmin, profile, isSandbox]);
 
   return {
     users,

@@ -416,5 +416,15 @@ service cloud.firestore {
                      && incoming().status == 'accepted';
        allow delete: if false;
     }
+    
+    // 13. Activity Logs Collection (Root Level Audit Trail)
+    match /activityLog/{logId} {
+      // Allows users to view logs. (Can be restricted to isTenantMember if needed)
+      allow read: if isSignedIn();
+      // Allows the activityLogger.ts script to write audit trails correctly
+      allow create: if isSignedIn() && isValidActivityLog(incoming());
+      // Make audit logs strictly immutable
+      allow update, delete: if false;
+    }
   }
 }

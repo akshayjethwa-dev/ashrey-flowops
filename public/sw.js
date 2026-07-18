@@ -34,12 +34,15 @@ self.addEventListener('activate', (event) => {
 
 // Fetch: Network first fallback to Cache
 self.addEventListener('fetch', (event) => {
-  // Let Firebase / API calls bypass service worker cache completely to avoid stale syncs
   const requestUrl = new URL(event.request.url);
+
+  // Let Firebase / API calls / Auth endpoints bypass service worker cache completely to avoid stale syncs
   if (
     event.request.method !== 'GET' ||
     requestUrl.origin !== self.location.origin ||
     requestUrl.pathname.startsWith('/api') ||
+    requestUrl.pathname.startsWith('/__/auth') || // Explicitly bypass Firebase auth handler path
+    requestUrl.href.includes('firebase') || // Catch-all for subdomains/paths containing firebase
     requestUrl.href.includes('firestore.googleapis.com') ||
     requestUrl.href.includes('securetoken.googleapis.com') ||
     requestUrl.href.includes('identitytoolkit.googleapis.com')

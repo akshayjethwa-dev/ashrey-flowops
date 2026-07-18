@@ -285,7 +285,9 @@ service cloud.firestore {
 
     // 2. Users Collection
     match /users/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || resource.data.tenantId == getUserTenantId());
+      // FIX: Ensure users can always read their *own* profile path regardless of whether the document
+      // exists yet or if their email_verified flag has fully propagated.
+      allow get: if request.auth != null && (request.auth.uid == userId || (resource != null && resource.data.tenantId == getUserTenantId()));
       allow list: if isSignedIn() && resource.data.tenantId == getUserTenantId();
       allow create: if request.auth != null && request.auth.uid == userId && isValidUser(incoming());
       allow update: if isSignedIn() && (

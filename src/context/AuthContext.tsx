@@ -19,7 +19,8 @@ import {
   getDocs,
   updateDoc,
   serverTimestamp,
-  writeBatch
+  writeBatch,
+  limit
 } from 'firebase/firestore';
 import { UserProfile, UserRole, Tenant } from '../types';
 import { handleFirestoreError, OperationType } from '../firebaseErrors';
@@ -99,12 +100,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const inviteQuery = query(
                 collection(db, 'invites'),
                 where('email', '==', firebaseUser.email),
-                where('status', '==', 'pending')
+                where('status', '==', 'pending'),
+                limit(1)
               );
               const inviteSnap = await getDocs(inviteQuery);
 
               if (!inviteSnap.empty) {
-                // 2a. ✅ INVITE PATH: Profile pre-created by admin, just activate it
+                // 2a. INVITE PATH: Profile pre-created by admin, just activate it
                 const inviteDoc = inviteSnap.docs[0];
                 const inviteData = inviteDoc.data();
                 
@@ -148,9 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 
                 setAuthStatus('active');
               } else {
-                // 2b. ✅ OWNER BOOTSTRAP PATH: No profile, no invite → create empty tenant and show onboarding
-                
-                // Generate a unique ID for the new company workspace
+                // 2b. OWNER BOOTSTRAP PATH: No profile, no invite → create empty tenant and show onboarding
                 const newTenantId = `tnt_${Date.now()}_${firebaseUser.uid.substring(0, 6)}`;
                 
                 const userProfile: UserProfile = {
@@ -158,7 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   email: firebaseUser.email || '',
                   name: firebaseUser.displayName || 'Workspace Owner',
                   tenantId: newTenantId,
-                  role: 'admin', // The creator is automatically an admin
+                  role: 'admin', 
                   createdAt: new Date().toISOString()
                 };
 
@@ -172,21 +172,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
 
                 try {
-                  // FIX: Execute as an atomic write batch so firestore rules read the user state simultaneously 
                   const batch = writeBatch(db);
 
-                  // 1. Save global user identity
                   batch.set(doc(db, 'users', firebaseUser.uid), userProfile);
                   
-                  // 2. Save the empty shell tenant document
                   batch.set(doc(db, 'tenants', newTenantId), {
-                    id: newTenantId, // Required by isValidTenant
-                    companyName: 'New Company', // Required by isValidTenant
+                    id: newTenantId, 
+                    companyName: 'New Company',
                     createdAt: serverTimestamp(),
                     onboardingCompleted: false
                   });
 
-                  // 3. Save user inside the tenant's roster
                   batch.set(doc(db, 'tenants', newTenantId, 'users', firebaseUser.uid), {
                     name: userProfile.name,
                     email: userProfile.email,
@@ -206,8 +202,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
               }
             }
-          } catch (e) {
+          } catch (e: any) {
             console.error('Error in Auth profile retrieval: ', e);
+            if (e.code === 'permission-denied') {
+              console.warn("Permission denied while fetching user. Re-evaluating Firestore rules.");
+            }
             setAuthStatus('unauthenticated');
           }
         } else {
@@ -284,6 +283,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const switchToSandboxRole = (role: UserRole) => {
     if (!profile) return;
+    
+    // SECURITY FIX: Strictly prevent non-admins from switching roles
+    if (profile.role !== 'admin') {
+      console.warn('Action blocked: Only Owner/Admin roles can switch user profiles.');
+      return;
+    }
+
     const updated = { ...profile, role };
     setProfile(updated);
     if (isSandboxMode) {
@@ -295,6 +301,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProfileLocally = (updates: Partial<UserProfile>) => {
     if (!profile) return;
+
+    // SECURITY FIX: Prevent non-admins from escalating to Super Admin
+    if (updates.isSuperAdmin !== undefined && profile.role !== 'admin') {
+      console.warn('Action blocked: Only Owner/Admin roles can toggle Super Admin mode.');
+      return;
+    }
+
     const updated = { ...profile, ...updates };
     setProfile(updated);
     if (isSandboxMode) {

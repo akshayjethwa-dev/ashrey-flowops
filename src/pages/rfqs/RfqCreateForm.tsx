@@ -5,8 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useRfqsList } from '../../hooks/useRfqsList';
 import { useCustomersList } from '../../hooks/useCustomersList';
-import { DEMO_PRODUCTS } from '../../data/mockData';
-import { RFQItem, Rfq } from '../../types';
+import { useTenantUsers } from '../../hooks/useTenantUsers';
+import { useStockItems } from '../../hooks/useStockInventory';
+import { RFQItem, Rfq, StockItem } from '../../types';
 import { db } from '../../firebase';
 import { useToast } from '../../context/ToastContext';
 import { FieldError } from '../../components/ui/FieldError';
@@ -18,9 +19,7 @@ import {
   Library, 
   Plus, 
   Trash2, 
-  CheckCircle2, 
   AlertCircle,
-  HelpCircle,
   UserCheck
 } from 'lucide-react';
 
@@ -29,16 +28,23 @@ export const RfqCreateForm: React.FC = () => {
   const { tenant, profile } = useAuth();
   const { addRfq } = useRfqsList(tenant?.id);
   const { customers, addCustomer, loading: loadingCust } = useCustomersList(tenant?.id);
+  
+  // Fetch live staff and inventory using the correct hook mappings
+  const { users, loading: loadingUsers } = useTenantUsers();
+  const { items: inventory, loading: loadingInventory } = useStockItems(tenant?.id);
   const { toastSuccess, toastError } = useToast();
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Filter staff for valid estimator roles with explicit 'any' typing to resolve ts(7006)
+  const estimators = users.filter((u: any) => ['admin', 'sales', 'management'].includes(u.role));
 
   // RFQ fields state
   const [rfqNumber, setRfqNumber] = useState(`RFQ-2026-${Math.floor(1001 + Math.random() * 8999)}`);
   const [dateReceived, setDateReceived] = useState(new Date().toISOString().split('T')[0]);
   const [source, setSource] = useState<'Phone' | 'Email' | 'WhatsApp' | 'Walk-in'>('Email');
   const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
-  const [assignedTo, setAssignedTo] = useState('Anand K.');
+  const [assignedTo, setAssignedTo] = useState('');
   const [description, setDescription] = useState('');
 
   // Customer linkage mode
@@ -52,7 +58,7 @@ export const RfqCreateForm: React.FC = () => {
   const [quickCustEmail, setQuickCustEmail] = useState('');
   const [quickCustCity, setQuickCustCity] = useState('');
 
-  // Manual fallback fields (in case they don't want to save a profile, or default)
+  // Manual fallback fields
   const [fallbackContactName, setFallbackContactName] = useState('');
   const [fallbackPhone, setFallbackPhone] = useState('');
   const [fallbackEmail, setFallbackEmail] = useState('');
@@ -75,16 +81,18 @@ export const RfqCreateForm: React.FC = () => {
         setFormError('Please select a catalog product first');
         return;
       }
-      const prod = DEMO_PRODUCTS.find(p => p.id === catalogProductId);
+      
+      // Pull directly from live inventory with proper StockItem type
+      const prod = inventory.find((p: StockItem) => p.id === catalogProductId);
       if (!prod) return;
 
-      // Avoid duplication if preferred or append
       const newItem: RFQItem = {
         id: prod.id,
         name: prod.name,
         quantity: itemQuantity,
         specs: itemSpecs.trim() || undefined
       };
+      
       setRfqItems([...rfqItems, newItem]);
       setCatalogProductId('');
       setItemQuantity(1);
@@ -110,7 +118,7 @@ export const RfqCreateForm: React.FC = () => {
   };
 
   const handleRemoveItem = (index: number) => {
-    setRfqItems(rfqItems.filter((_, i) => i !== index));
+    setRfqItems(rfqItems.filter((_: any, i: number) => i !== index));
   };
 
   // Submit Rfq Form
@@ -121,7 +129,7 @@ export const RfqCreateForm: React.FC = () => {
     setFormError(null);
     setFieldErrors({});
 
-    // Field Validation Form Pattern (Requirement 2)
+    // Field Validation Form Pattern
     const errors: Record<string, string> = {};
     if (customerMode === 'select' && !selectedCustomerId) {
       errors.customerId = 'B2B Client Profile selection is required.';
@@ -131,6 +139,9 @@ export const RfqCreateForm: React.FC = () => {
     }
     if (rfqItems.length === 0) {
       errors.rfqItems = 'Please append at least one engineering compound parts line item below.';
+    }
+    if (!assignedTo) {
+      errors.assignedTo = 'Please assign an estimator to this RFQ.';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -148,7 +159,7 @@ export const RfqCreateForm: React.FC = () => {
       let finalEmail = '';
 
       if (customerMode === 'select') {
-        const custRef = customers.find(c => c.id === selectedCustomerId);
+        const custRef = customers.find((c: any) => c.id === selectedCustomerId);
         if (!custRef) throw new Error('Selected customer profile is invalid');
 
         finalCustomerId = selectedCustomerId;
@@ -191,20 +202,20 @@ export const RfqCreateForm: React.FC = () => {
         email: finalEmail,
         source,
         dateReceived,
-        status: 'New', // default status
+        status: 'New', 
         priority,
         description: description.trim(),
-        assignedTo,
+        assignedTo, 
         attachments: [],
         items: rfqItems,
-        requirements: description.trim(), // backward compatibility
+        requirements: description.trim(), 
         createdBy: profile.uid
       };
 
       // Call API
       const createdRfq = await addRfq(rfqPayload);
 
-      // Trigger D: Create notification type "new_rfq" for all users with role "sales" or "admin"
+      // Trigger Notifications
       const rfqIsSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
       let targetUsers: string[] = [];
 
@@ -234,12 +245,10 @@ export const RfqCreateForm: React.FC = () => {
         }
       }
 
-      // Fallback if no target users found
       if (targetUsers.length === 0) {
         targetUsers.push(profile.uid);
       }
 
-      // Create notifications
       if (rfqIsSandbox) {
         const key = `flowops_notifications_${tenant.id}`;
         const cached = localStorage.getItem(key);
@@ -288,7 +297,6 @@ export const RfqCreateForm: React.FC = () => {
         }
       }
       
-      // Save timeline automatically in localStorage since the detail page uses it
       const timelineKey = `rfq_timeline_${tenant.id}_${createdRfq.id}`;
       const events = [
         {
@@ -301,13 +309,10 @@ export const RfqCreateForm: React.FC = () => {
       ];
       localStorage.setItem(timelineKey, JSON.stringify(events));
 
-      // Global Toast Notification Pattern (Requirement 1)
       toastSuccess('RFQ Formulated Successfully', `Quotation file ${rfqNumber} has been updated in database.`, 5000);
 
-      // Redirect back to RFQ master pool of listings
       navigate('/rfqs');
     } catch (err: any) {
-      // Backend error code mapping (Requirement 2)
       const mappedMsg = getFriendlyErrorMessage(err);
       setFormError(mappedMsg);
       toastError('Operational Mismatch Exception', mappedMsg);
@@ -410,14 +415,17 @@ export const RfqCreateForm: React.FC = () => {
               <select
                 value={assignedTo}
                 onChange={(e) => setAssignedTo(e.target.value)}
+                disabled={loadingUsers}
                 className="w-full bg-slate-50 border border-slate-205 rounded-lg p-2 font-sans focus:bg-white text-slate-800 focus:outline-hidden"
               >
-                <option value="Anand K.">Anand K. (Lead Estimator)</option>
-                <option value="Rajesh S.">Rajesh S. (Gears Div)</option>
-                <option value="Vikram M.">Vikram M. (Machinery Specialist)</option>
-                <option value="Sales Admin">Sales Admin Desk</option>
-                <option value="demo_user">demo_user</option>
+                <option value="">{loadingUsers ? 'Loading staff...' : '-- Select Estimator --'}</option>
+                {estimators.map((user: any) => (
+                  <option key={user.id} value={user.name}>
+                    {user.name} ({user.role})
+                  </option>
+                ))}
               </select>
+              <FieldError message={fieldErrors.assignedTo} />
             </div>
           </div>
         </div>
@@ -466,16 +474,17 @@ export const RfqCreateForm: React.FC = () => {
                   value={selectedCustomerId}
                   onChange={(e) => {
                     setSelectedCustomerId(e.target.value);
-                    const selected = customers.find(c => c.id === e.target.value);
+                    const selected = customers.find((c: any) => c.id === e.target.value);
                     if (selected) {
                       setFallbackContactName(selected.contactPerson);
                       setFallbackPhone(selected.phone || '');
                       setFallbackEmail(selected.email || '');
                     }
                   }}
+                  disabled={loadingCust}
                 >
-                  <option value="">-- Click to search customer rolodex --</option>
-                  {customers.map((c) => (
+                  <option value="">{loadingCust ? 'Loading customers...' : '-- Click to search customer rolodex --'}</option>
+                  {customers.map((c: any) => (
                     <option key={c.id} value={c.id}>
                       {c.name} {c.city ? `(${c.city})` : ''} - Contact: {c.contactPerson}
                     </option>
@@ -617,11 +626,12 @@ export const RfqCreateForm: React.FC = () => {
                     className="w-full bg-white border border-slate-220 rounded-lg p-2 text-xs text-slate-705 focus:outline-hidden"
                     value={catalogProductId}
                     onChange={(e) => setCatalogProductId(e.target.value)}
+                    disabled={loadingInventory}
                   >
-                    <option value="">-- Choose Catalogue SKU --</option>
-                    {DEMO_PRODUCTS.map(p => (
+                    <option value="">{loadingInventory ? 'Loading inventory...' : '-- Choose Catalogue SKU --'}</option>
+                    {inventory.map((p: StockItem) => (
                       <option key={p.id} value={p.id}>
-                        {p.name} (Custom Rate)
+                        {p.name} {p.code ? `[${p.code}]` : ''} ({p.currentQty || 0} in stock)
                       </option>
                     ))}
                   </select>
@@ -654,7 +664,7 @@ export const RfqCreateForm: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleAddItem}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white hover:bg-sky-700 text-xs font-mono py-2 rounded-lg font-bold flex items-center justify-center space-x-1 cursor-pointer transition"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-mono py-2 rounded-lg font-bold flex items-center justify-center space-x-1 cursor-pointer transition"
                 >
                   <Plus className="h-4 w-4" />
                   <span>Append Line</span>
@@ -687,7 +697,7 @@ export const RfqCreateForm: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {rfqItems.map((itm, index) => (
+                  {rfqItems.map((itm: any, index: number) => (
                     <tr key={index} className="hover:bg-slate-50/10">
                       <td className="py-2 px-4 whitespace-normal">
                         <div className="font-bold text-slate-800">{itm.name}</div>

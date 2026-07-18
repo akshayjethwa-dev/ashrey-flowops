@@ -66,10 +66,26 @@ self.addEventListener('fetch', (event) => {
           if (cachedResponse) {
             return cachedResponse;
           }
+          
           // If a page route is missing and we are offline, fallback to index.html
           if (event.request.mode === 'navigate') {
-            return caches.match('/');
+            return caches.match('/').then((cachedIndex) => {
+              if (cachedIndex) {
+                return cachedIndex;
+              }
+              // FIX: Guarantee a Response object even if the cache is empty
+              return new Response(
+                'You are offline and the application could not be loaded from cache.', 
+                { status: 503, statusText: 'Service Unavailable', headers: new Headers({ 'Content-Type': 'text/plain' }) }
+              );
+            });
           }
+
+          // FIX: Ultimate fallback to prevent "TypeError: Failed to convert value to 'Response'"
+          return new Response(
+            'Resource not found in offline cache.', 
+            { status: 404, statusText: 'Not Found', headers: new Headers({ 'Content-Type': 'text/plain' }) }
+          );
         });
       })
   );

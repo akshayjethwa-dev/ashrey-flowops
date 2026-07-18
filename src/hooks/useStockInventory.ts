@@ -780,3 +780,7 @@ export const useAddStockEntry = (tenantId: string | undefined) => {
     submitting
   };
 };
+
+// --- FIX ADDED BELOW ---
+// Alias to safely allow imports targeting useStockInventory to resolve correctly
+export const useStockInventory = useStockItems;

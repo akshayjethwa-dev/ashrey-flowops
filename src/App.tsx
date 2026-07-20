@@ -10,6 +10,7 @@ import { ToastProvider } from './context/ToastContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { Loader2, ShieldCheck } from 'lucide-react';
 
 // Unauthenticated views
 import { Login } from './pages/unauth/Login';
@@ -52,12 +53,22 @@ import { InternalTenantsListPage } from './pages/internal/InternalTenantsListPag
 import { InternalTenantDetailPage } from './pages/internal/InternalTenantDetailPage';
 
 const AppRouter = () => {
-  const { authStatus } = useAuth();
+  const { authStatus, tenant } = useAuth();
 
-  if (authStatus === 'loading') {
+  // GLOBAL LOADING GATE: Ensures router tree waits for complete authentication & tenant verification
+  if (authStatus === 'loading' || (authStatus === 'active' && !tenant)) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600"></div>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 space-y-4">
+        <Loader2 className="h-8 w-8 text-sky-600 animate-spin" />
+        <div className="flex flex-col items-center space-y-1 text-center">
+          <span className="text-xs font-mono font-bold text-slate-700 uppercase tracking-widest flex items-center justify-center space-x-1.5">
+            <ShieldCheck className="h-4 w-4 text-emerald-500" />
+            <span>Verifying Secure Workspace</span>
+          </span>
+          <span className="text-[10px] font-mono text-slate-400">
+            Establishing tenant connection and security rules...
+          </span>
+        </div>
       </div>
     );
   }

@@ -5,7 +5,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
 import { isSuperAdmin, canPerformAction, PermissionAction } from '../../utils/permissions';
-import { Lock, LogOut } from 'lucide-react';
+import { Lock, LogOut, ShieldCheck, Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -20,16 +20,23 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requiredAction,
   requireSuperAdmin
 }) => {
-  const { authStatus, profile, signOut } = useAuth();
+  const { authStatus, profile, tenant, signOut } = useAuth();
   const location = useLocation();
 
-  if (authStatus === 'loading') {
+  // 🔒 STRICT GATE: Block rendering if loading OR if auth is 'active' but the tenant hasn't populated yet
+  if (authStatus === 'loading' || (authStatus === 'active' && !tenant)) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-        <div className="animate-spin h-8 w-8 border-3 border-sky-600 border-t-transparent rounded-full" />
-        <p className="mt-4 text-xs font-mono text-slate-400 uppercase tracking-widest animate-pulse">
-          Resolving credentials...
-        </p>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 space-y-4">
+        <Loader2 className="h-8 w-8 text-sky-600 animate-spin" />
+        <div className="flex flex-col items-center space-y-1 text-center">
+          <span className="text-xs font-mono font-bold text-slate-700 uppercase tracking-widest flex items-center justify-center space-x-1.5">
+            <ShieldCheck className="h-4 w-4 text-emerald-500" />
+            <span>Verifying Secure Workspace</span>
+          </span>
+          <span className="text-[10px] font-mono text-slate-400">
+            Establishing tenant connection and security rules...
+          </span>
+        </div>
       </div>
     );
   }

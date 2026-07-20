@@ -86,15 +86,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
               }
 
-              // 2. Get tenant config
+              // 2. Get tenant config strictly
               const tenantRef = doc(db, 'tenants', uData.tenantId);
               const tenantSnap = await getDoc(tenantRef);
+              
               if (tenantSnap.exists()) {
                 setTenant(tenantSnap.data() as Tenant);
+                // 3. Lockout or Allow ONLY if tenant exists
+                setAuthStatus(isActive ? 'active' : 'suspended');
+              } else {
+                console.error("CRITICAL: User profile exists, but associated tenant is missing.");
+                setAuthStatus('unauthenticated');
               }
               
-              // 3. Lockout or Allow
-              setAuthStatus(isActive ? 'active' : 'suspended');
             } else {
               // 1. Check if an invite exists for this email
               const inviteQuery = query(
@@ -141,14 +145,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 setProfile(userProfile);
                 
-                // Get tenant config
+                // Get tenant config strictly
                 const tenantRef = doc(db, 'tenants', inviteData.tenantId);
                 const tenantSnap = await getDoc(tenantRef);
                 if (tenantSnap.exists()) {
                   setTenant(tenantSnap.data() as Tenant);
+                  setAuthStatus('active');
+                } else {
+                  console.error("CRITICAL: Accepted invite points to a missing tenant.");
+                  setAuthStatus('unauthenticated');
                 }
                 
-                setAuthStatus('active');
               } else {
                 // 2b. OWNER BOOTSTRAP PATH: No profile, no invite → create empty tenant and show onboarding
                 const newTenantId = `tnt_${Date.now()}_${firebaseUser.uid.substring(0, 6)}`;

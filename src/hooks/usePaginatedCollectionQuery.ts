@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { db } from '../firebase';
+import { useAuth } from './useAuth'; // Added Auth Hook
 import { 
   collection, 
   query, 
@@ -36,6 +37,7 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
     localBackupKey?: string;
   } = {}
 ): PaginationResult<T> => {
+  const { tenant } = useAuth(); // Extract tenant
   const {
     filters = {},
     pageSize = 10,
@@ -180,13 +182,19 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
 
   // Initial load or resetting sequence
   const resetAndFetch = useCallback(async () => {
+    // STRICT TENANT GUARD: Prevent unauthorized reads
+    if (!isSandbox && (!tenant?.id || !db || collectionPath.includes('/undefined'))) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setData([]);
     lastDocRef.current = null;
     localOffsetRef.current = 0;
 
-    if (isSandbox || !db) {
+    if (isSandbox) {
       // Sandbox mode mock cursor paging
       buildLocalSandboxCache();
       const firstBatch = localFilteredCacheRef.current.slice(0, pageSize);
@@ -266,20 +274,25 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
         setLoading(false);
       }
     }
-  }, [collectionPath, isSandbox, pageSize, sortField, sortDirection, filters, buildLocalSandboxCache]);
+  }, [collectionPath, isSandbox, pageSize, sortField, sortDirection, filters, buildLocalSandboxCache, tenant?.id]); // Added tenant?.id dependency
 
   useEffect(() => {
     resetAndFetch();
-  }, [collectionPath, isSandbox, sortField, sortDirection, JSON.stringify(filters)]);
+  }, [collectionPath, isSandbox, sortField, sortDirection, JSON.stringify(filters), tenant?.id]); // Added tenant?.id dependency
 
   // Progressive load more function
   const loadMore = async () => {
     if (loading || loadingMore || !hasMore) return;
 
+    // STRICT TENANT GUARD for progressive loads
+    if (!isSandbox && (!tenant?.id || !db || collectionPath.includes('/undefined'))) {
+      return;
+    }
+
     setLoadingMore(true);
     setError(null);
 
-    if (isSandbox || !db) {
+    if (isSandbox) {
       // Next Sandbox mock segment slice
       const start = localOffsetRef.current;
       const end = start + pageSize;

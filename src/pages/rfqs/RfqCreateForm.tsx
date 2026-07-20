@@ -124,7 +124,14 @@ export const RfqCreateForm: React.FC = () => {
   // Submit Rfq Form
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tenant || !profile) return;
+    
+    // STRICT TENANT GUARD: Check if tenant context exists before attempting writes
+    if (!tenant || !tenant.id || !profile) {
+      toastError('Authentication Error', 'No tenant detected. Please refresh the page or log in again.');
+      console.error("Submission blocked: tenant or tenant.id is null");
+      return; 
+    }
+
     setSaving(true);
     setFormError(null);
     setFieldErrors({});

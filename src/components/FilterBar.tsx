@@ -87,7 +87,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   };
 
   useEffect(() => {
-    if (tenantId) {
+    // STRICT GUARD: Prevent querying before Auth state finishes resolving
+    if (tenantId && resolvedUserId && resolvedUserId !== 'anonymous_user') {
       fetchSavedViews();
     }
   }, [tenantId, entityType, resolvedUserId]);
@@ -198,7 +199,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 select-none">
         
         {/* keyword bar */}
-        <div className="relative flex-grow">
+        <div className="relative grow">
           <input
             type="text"
             className="w-full text-xs font-mono border border-slate-220 rounded-lg pl-9 pr-8 py-2 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-sky-500 text-slate-800"
@@ -345,7 +346,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
           {/* Date range inputs */}
           <div className="space-y-1.5">
-            <span className="text-[9px] font-bold font-mono text-slate-450 uppercase tracking-widest block flex items-center space-x-1">
+            <span className="text-[9px] font-bold font-mono text-slate-450 uppercase tracking-widest block items-center space-x-1">
               <Calendar className="h-3 w-3 text-slate-400" />
               <span>Created From</span>
             </span>
@@ -358,7 +359,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </div>
 
           <div className="space-y-1.5">
-            <span className="text-[9px] font-bold font-mono text-slate-450 uppercase tracking-widest block flex items-center space-x-1">
+            <span className="text-[9px] font-bold font-mono text-slate-450 uppercase tracking-widest block items-center space-x-1">
               <Calendar className="h-3 w-3 text-slate-400" />
               <span>Created To</span>
             </span>

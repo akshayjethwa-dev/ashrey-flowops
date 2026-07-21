@@ -26,7 +26,9 @@ import {
 import { TextField } from '../../components/ui/TextField';
 
 export const CustomersListPage: React.FC = () => {
-  const { tenant } = useAuth();
+  const authContext = useAuth() as any;
+  const activeTenantId = authContext?.tenant?.id || authContext?.tenantId || authContext?.user?.tenantId;
+  
   const navigate = useNavigate();
 
   // Unified Filter mapping
@@ -58,14 +60,14 @@ export const CustomersListPage: React.FC = () => {
     error: listError,
     loadMore
   } = usePaginatedCollectionQuery<Customer & { id: string }>(
-    tenant?.id ? `tenants/${tenant.id}/customers` : 'customers',
+    activeTenantId ? `tenants/${activeTenantId}/customers` : '',
     {
       filters: queryFilters,
       pageSize: 8,
       sortField: 'createdAt',
       sortDirection: 'desc',
       isSandbox,
-      localBackupKey: `customers_${tenant?.id}`
+      localBackupKey: `customers_${activeTenantId}`
     }
   );
 
@@ -74,10 +76,10 @@ export const CustomersListPage: React.FC = () => {
     addCustomer, 
     updateCustomer, 
     deleteCustomer 
-  } = useCustomersList(tenant?.id);
+  } = useCustomersList(activeTenantId);
 
   // Retrieve tenant users to map assignments
-  const { users: tenantUsers } = useTenantUsers(tenant?.id);
+  const { users: tenantUsers } = useTenantUsers(activeTenantId);
   const salesExecutives = (tenantUsers || []).filter(
     u => u.role === 'sales' || u.role === 'admin' || u.role === 'management'
   );
@@ -85,6 +87,7 @@ export const CustomersListPage: React.FC = () => {
   // Slide-over Form States
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form Fields
   const [name, setName] = useState('');
@@ -147,6 +150,8 @@ export const CustomersListPage: React.FC = () => {
       return;
     }
 
+    setIsSubmitting(true);
+
     const processedTags = tagsInput
       .split(',')
       .map(t => t.trim())
@@ -158,13 +163,13 @@ export const CustomersListPage: React.FC = () => {
       contactPerson,
       phone,
       email,
-      gstNumber: gstNumber || undefined,
+      gstNumber,
       billingAddress,
       shippingAddress,
       city,
-      notes: notes || undefined,
+      notes,
       tags: processedTags,
-      assignedSalesUserId: assignedSalesUserId || undefined
+      assignedSalesUserId
     };
 
     try {
@@ -177,8 +182,16 @@ export const CustomersListPage: React.FC = () => {
       }
       setIsDrawerOpen(false);
       resetForm();
+
+      // FIX: Force UI refresh if running in local Sandbox mode so new data loads into the paginated view
+      if (isSandbox) {
+        window.location.reload();
+      }
+
     } catch (err: any) {
-      alert(`Operation failed: ${err.message || err}`);
+      alert(err.message || 'An error occurred while saving.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -188,6 +201,7 @@ export const CustomersListPage: React.FC = () => {
       try {
         await deleteCustomer(id);
         alert('Customer record deleted.');
+        if (isSandbox) window.location.reload();
       } catch (err: any) {
         alert(`Error deleting customer: ${err.message}`);
       }
@@ -241,7 +255,7 @@ export const CustomersListPage: React.FC = () => {
       {/* Dynamic FilterBar component */}
       <FilterBar
         entityType="customers"
-        tenantId={tenant?.id || 'demo'}
+        tenantId={activeTenantId || 'demo'}
         filters={filters}
         onFilterChange={(updated) => setFilters(updated)}
         onClearFilters={() => setFilters({
@@ -764,9 +778,10 @@ export const CustomersListPage: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 bg-slate-900 border border-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-mono font-bold uppercase tracking-wider transition shadow-sm"
+                    disabled={isSubmitting}
+                    className="px-5 py-2 bg-slate-900 border border-slate-900 hover:bg-slate-800 disabled:bg-slate-500 text-white rounded-lg text-xs font-mono font-bold uppercase tracking-wider transition shadow-sm cursor-pointer disabled:cursor-not-allowed"
                   >
-                    {editingCustomer ? 'Update Ledger' : 'Onboard Now'}
+                    {isSubmitting ? 'Processing...' : editingCustomer ? 'Update Ledger' : 'Onboard Now'}
                   </button>
                 </div>
               </form>

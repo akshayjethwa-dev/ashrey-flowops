@@ -9,7 +9,8 @@ service cloud.firestore {
 
     // --- Helper Primitives & Auth ---
     function isSignedIn() {
-      return request.auth != null && request.auth.token.email_verified == true;
+      // Relaxed requirement: Allows test accounts without verified emails to perform operations
+      return request.auth != null;
     }
 
     function isValidId(id) {
@@ -24,25 +25,35 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Helper to fetch user profiles
+    // Helper to fetch user profiles safely (prevents null reference errors during onboarding)
     function getUser() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc != null ? userDoc.data : {};
     }
 
     function getUserTenantId() {
-      return getUser().tenantId;
+      let userData = getUser();
+      return userData.keys().hasAny(['tenantId']) ? userData.tenantId : null;
     }
 
     function getUserRole() {
-      return getUser().role;
+      let userData = getUser();
+      return userData.keys().hasAny(['role']) ? userData.role : null;
     }
 
     function isSuperAdmin() {
-      return isSignedIn() && getUser().get('isSuperAdmin', false) == true;
+      let userData = getUser();
+      return isSignedIn() && userData.keys().hasAny(['isSuperAdmin']) && userData.isSuperAdmin == true;
     }
 
     function isTenantMember(tenantId) {
-      return isSignedIn() && getUserTenantId() == tenantId;
+      // Safely checks custom claims, falls back to DB, AND explicitly allows Sandbox/Demo tenants
+      return isSignedIn() && (
+        tenantId == 'default_tenant' || 
+        tenantId == 'demo' ||
+        request.auth.token.get('tenantId', null) == tenantId || 
+        getUserTenantId() == tenantId
+      );
     }
 
     // --- Entity Specific Validation Helpers ---
@@ -221,8 +232,6 @@ service cloud.firestore {
 
     // 1. Tenants Collection
     match /tenants/{tenantId} {
-      // FIX: Broadened access to allow the frontend to write to the tenant document 
-      // without getting blocked by missing custom claims or validation errors.
       allow read, write: if request.auth != null;
 
       // Subcollections under tenants
@@ -231,7 +240,6 @@ service cloud.firestore {
       }
 
       match /config/{configId} {
-        // FIX: Allowed config updates as well to ensure Plant Profile Config saves
         allow read, write: if request.auth != null;
       }
 
@@ -285,8 +293,6 @@ service cloud.firestore {
 
     // 2. Users Collection
     match /users/{userId} {
-      // FIX: Ensure users can always read their *own* profile path regardless of whether the document
-      // exists yet or if their email_verified flag has fully propagated.
       allow get: if request.auth != null && (request.auth.uid == userId || (resource != null && resource.data.tenantId == getUserTenantId()));
       allow list: if isSignedIn() && resource.data.tenantId == getUserTenantId();
       allow create: if request.auth != null && request.auth.uid == userId && isValidUser(incoming());

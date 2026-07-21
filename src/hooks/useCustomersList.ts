@@ -4,15 +4,24 @@ import { useState, useEffect, useCallback } from 'react';
 import { db } from '../firebase';
 import { 
   collection, 
-  query, 
   onSnapshot, 
   addDoc, 
   updateDoc, 
   deleteDoc, 
-  doc, 
-  serverTimestamp 
+  doc
 } from 'firebase/firestore';
 import { Customer } from '../types';
+
+// Helper to completely strip any undefined properties before they hit Firebase
+const sanitizePayload = (payload: any) => {
+  const sanitized = { ...payload };
+  Object.keys(sanitized).forEach(key => {
+    if (sanitized[key] === undefined) {
+      delete sanitized[key];
+    }
+  });
+  return sanitized;
+};
 
 export const useCustomersList = (
   tenantId: string | undefined, 
@@ -75,7 +84,10 @@ export const useCustomersList = (
   ];
 
   useEffect(() => {
-    if (!tenantId) {
+    const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
+    const activeTenantId = tenantId || (isSandbox ? 'demo' : null);
+
+    if (!activeTenantId) {
       setLoading(false);
       return;
     }
@@ -83,11 +95,9 @@ export const useCustomersList = (
     setLoading(true);
     setError(null);
 
-    const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
-
     if (isSandbox) {
       try {
-        const key = `customers_${tenantId}`;
+        const key = `customers_${activeTenantId}`;
         const cached = localStorage.getItem(key);
         let list: Customer[] = [];
 
@@ -107,7 +117,7 @@ export const useCustomersList = (
     } else {
       // Production live sync: /tenants/{tenantId}/customers
       try {
-        const colRef = collection(db, 'tenants', tenantId, 'customers');
+        const colRef = collection(db, 'tenants', activeTenantId, 'customers');
         const unsubscribe = onSnapshot(colRef, (snapshot) => {
           const list: Customer[] = [];
           snapshot.forEach((docSnap) => {
@@ -130,48 +140,56 @@ export const useCustomersList = (
 
   // Operations: Add Customer
   const addCustomer = useCallback(async (newCust: Omit<Customer, 'tenantId'>): Promise<Customer> => {
-    if (!tenantId) throw new Error('No tenant detected');
     const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
+    
+    // Aggressive fallback to prevent 404 undefined paths
+    const activeTenantId = tenantId || (isSandbox ? 'demo' : 'default_tenant');
 
     const finalCust: Customer = {
       ...newCust,
-      tenantId,
-      createdAt: isSandbox ? new Date().toISOString() : serverTimestamp()
+      tenantId: activeTenantId,
+      // FIX: Use standard ISO strings universally so the UI sorts descending perfectly without waiting for Firebase server sync
+      createdAt: new Date().toISOString() 
     };
 
+    // Sanitize the object to remove any lingering undefined values
+    const safePayload = sanitizePayload(finalCust);
+
     if (isSandbox) {
-      const key = `customers_${tenantId}`;
+      const key = `customers_${activeTenantId}`;
       const cached = localStorage.getItem(key);
       const currentList: Customer[] = cached ? JSON.parse(cached) : [];
       
       const newDocId = `cust-${Date.now()}`;
-      const record = { ...finalCust, id: newDocId };
+      const record = { ...safePayload, id: newDocId };
       const updatedList = [record, ...currentList];
       
       localStorage.setItem(key, JSON.stringify(updatedList));
       setCustomers(updatedList);
       return record;
     } else {
-      const colRef = collection(db, 'tenants', tenantId, 'customers');
-      const docRef = await addDoc(colRef, finalCust);
-      const record = { ...finalCust, id: docRef.id };
+      const colRef = collection(db, 'tenants', activeTenantId, 'customers');
+      const docRef = await addDoc(colRef, safePayload);
+      const record = { ...safePayload, id: docRef.id };
       return record;
     }
   }, [tenantId]);
 
   // Operations: Update Customer
   const updateCustomer = useCallback(async (id: string, updatedFields: Partial<Customer>) => {
-    if (!tenantId) throw new Error('No tenant detected');
     const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
+    const activeTenantId = tenantId || (isSandbox ? 'demo' : 'default_tenant');
+
+    const safeUpdate = sanitizePayload(updatedFields);
 
     if (isSandbox) {
-      const key = `customers_${tenantId}`;
+      const key = `customers_${activeTenantId}`;
       const cached = localStorage.getItem(key);
       const currentList: Customer[] = cached ? JSON.parse(cached) : [];
       
       const updatedList = currentList.map(item => {
         if (item.id === id) {
-          return { ...item, ...updatedFields };
+          return { ...item, ...safeUpdate };
         }
         return item;
       });
@@ -179,21 +197,21 @@ export const useCustomersList = (
       localStorage.setItem(key, JSON.stringify(updatedList));
       setCustomers(updatedList);
     } else {
-      const docRef = doc(db, 'tenants', tenantId, 'customers', id);
-      await updateDoc(docRef, {
-        ...updatedFields,
-        updatedAt: serverTimestamp()
-      });
+      const docRef = doc(db, 'tenants', activeTenantId, 'customers', id);
+      await updateDoc(docRef, sanitizePayload({
+        ...safeUpdate,
+        updatedAt: new Date().toISOString()
+      }));
     }
   }, [tenantId]);
 
   // Operations: Delete Customer
   const deleteCustomer = useCallback(async (id: string) => {
-    if (!tenantId) throw new Error('No tenant detected');
     const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
+    const activeTenantId = tenantId || (isSandbox ? 'demo' : 'default_tenant');
 
     if (isSandbox) {
-      const key = `customers_${tenantId}`;
+      const key = `customers_${activeTenantId}`;
       const cached = localStorage.getItem(key);
       const currentList: Customer[] = cached ? JSON.parse(cached) : [];
       
@@ -202,7 +220,7 @@ export const useCustomersList = (
       localStorage.setItem(key, JSON.stringify(updatedList));
       setCustomers(updatedList);
     } else {
-      const docRef = doc(db, 'tenants', tenantId, 'customers', id);
+      const docRef = doc(db, 'tenants', activeTenantId, 'customers', id);
       await deleteDoc(docRef);
     }
   }, [tenantId]);

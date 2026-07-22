@@ -34,6 +34,7 @@ import { ReportsPage } from './pages/ReportsPage';
 
 // Settings sub-views
 import { TenantSettingsPage } from './pages/settings/TenantSettingsPage';
+import { PlantsManagementPage } from './pages/settings/PlantsManagementPage';
 import { ProductionStagesPage } from './pages/settings/ProductionStagesPage';
 import { WhatsAppPage } from './pages/settings/WhatsAppPage';
 import { WhatsAppInboxPage } from './pages/WhatsAppInboxPage';
@@ -252,6 +253,15 @@ const AppRouter = () => {
             element={
               <ProtectedRoute requiredAction="manage:settings">
                 <TenantSettingsPage />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="settings/plants" 
+            element={
+              <ProtectedRoute requiredAction="manage:settings">
+                <PlantsManagementPage />
               </ProtectedRoute>
             } 
           />

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { db } from '../firebase';
-import { useAuth } from './useAuth'; // Added Auth Hook
+import { useAuth } from './useAuth';
 import { 
   collection, 
   query, 
@@ -37,7 +37,7 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
     localBackupKey?: string;
   } = {}
 ): PaginationResult<T> => {
-  const { tenant } = useAuth(); // Extract tenant
+  const { tenant, activePlantId } = useAuth();
   const {
     filters = {},
     pageSize = 10,
@@ -68,11 +68,154 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
     }
 
     try {
-      const cached = localStorage.getItem(localBackupKey) || '[]';
-      let parsed = JSON.parse(cached) as T[];
+      let cached = localStorage.getItem(localBackupKey);
+
+      // AUTO-SEED SANDBOX KEY IF EMPTY (Resolves hook race conditions on fresh session/reload)
+      if (!cached) {
+        const tid = localBackupKey.split('_')[1] || 'demo';
+        if (localBackupKey.startsWith('customers_')) {
+          const SEED_CUSTOMERS = [
+            {
+              id: 'cust-1',
+              tenantId: tid,
+              name: 'Kirloskar Industrial Distributors',
+              type: 'dealer',
+              contactPerson: 'Anil Kulkarni',
+              phone: '9880123456',
+              email: 'anil@kirloskar-dist.in',
+              city: 'Pune',
+              billingAddress: '102 Industrial Area, MIDC Phase 2, Pune, MH - 411018',
+              shippingAddress: 'Warehouse B, Plot 45, MIDC, Pune, MH - 411018',
+              gstNumber: '27AAAAA1111A1Z1',
+              notes: 'High-volume regional distributor for Western India. Prefers Lorry transport.',
+              tags: ['Priority', 'Distributor'],
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'cust-2',
+              tenantId: tid,
+              name: 'Techno Welds India Pvt Ltd',
+              type: 'customer',
+              contactPerson: 'Rajesh Sharma',
+              phone: '9123456780',
+              email: 'rsharma@technowelds.co.in',
+              city: 'Jamshedpur',
+              billingAddress: 'Building 4B, Industrial Estate, Adityapur, Jamshedpur, JH - 832109',
+              shippingAddress: 'Plant 1 Receiving Dock, Jamshedpur, JH - 832109',
+              gstNumber: '20BBBBB2222B2Z2',
+              notes: 'Regular prompt payment customer. Procures steel wire and joints.',
+              tags: ['Regular', 'Loyal'],
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'cust-3',
+              tenantId: tid,
+              name: 'L&T Heavy Engineering Co.',
+              type: 'customer',
+              contactPerson: 'Vikram Mehta',
+              phone: '9820098765',
+              email: 'v.mehta@heavyeng.lnte.com',
+              city: 'Surat',
+              billingAddress: 'L&T Campus, Gate 3, Hazira Road, Surat, GJ - 394270',
+              shippingAddress: 'Hazira Manufacturing Complex, Workshop 5, Surat, GJ - 394270',
+              gstNumber: '24CCCCC3333C3Z3',
+              notes: 'Requires detailed technical inspection reports with all dispatch shipments.',
+              tags: ['MNC', 'Strict QA'],
+              createdAt: new Date().toISOString()
+            }
+          ];
+          localStorage.setItem(localBackupKey, JSON.stringify(SEED_CUSTOMERS));
+          cached = JSON.stringify(SEED_CUSTOMERS);
+        } else if (localBackupKey.startsWith('dispatches_')) {
+          const SEED_DISPATCHES = [
+            {
+              id: 'disp_9001',
+              tenantId: tid,
+              orderId: 'order_test_01',
+              dispatchNumber: 'DS-9001',
+              invoiceNumber: 'INV-F26-9022',
+              vehicleNumber: 'MH-12-PQ-9876',
+              driverName: 'Sukhdev Singh',
+              driverPhone: '9440612345',
+              lrNumber: 'LR-890122',
+              LRNumber: 'LR-890122',
+              transporter: 'SafeExpress Ltd.',
+              items: [
+                { id: 'p1', name: 'Forged Steel Spur Gear (Mod 4, 32T)', quantity: 20, unitPrice: 4200, gstPercent: 18, total: 84000 }
+              ],
+              status: 'Dispatched',
+              dispatchDate: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString().split('T')[0],
+              dispatchedAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
+              destination: 'Pune Distribution Hub',
+              itemsSummary: 'Forged Steel Spur Gear x20',
+              notes: 'Handed over directly with full transport packaging intact.'
+            }
+          ];
+          localStorage.setItem(localBackupKey, JSON.stringify(SEED_DISPATCHES));
+          cached = JSON.stringify(SEED_DISPATCHES);
+        } else if (localBackupKey.startsWith('rfqs_')) {
+          const SEED_RFQS = [
+            {
+              id: 'rfq_1001',
+              rfqNumber: 'RFQ-2026-0001',
+              tenantId: tid,
+              customerId: 'cust-1',
+              customerName: 'Kirloskar Industrial Distributors',
+              contactName: 'Anil Kulkarni',
+              phone: '9880123456',
+              email: 'anil@kirloskar-dist.in',
+              source: 'Email',
+              dateReceived: '2026-05-25',
+              status: 'New',
+              priority: 'High',
+              description: 'Need Grade 4 standard heavy spur gears matching drawing specification housing.',
+              items: [
+                { id: 'p1', name: 'Forged Steel Spur Gear (Mod 4, 32T)', quantity: 20, specs: 'Material: EN8 Carbon Steel' }
+              ],
+              createdBy: 'demo_user',
+              createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString()
+            },
+            {
+              id: 'rfq_1002',
+              rfqNumber: 'RFQ-2026-0002',
+              tenantId: tid,
+              customerId: 'cust-2',
+              customerName: 'Techno Welds India Pvt Ltd',
+              contactName: 'Rajesh Sharma',
+              phone: '9123456780',
+              email: 'rsharma@technowelds.co.in',
+              source: 'WhatsApp',
+              dateReceived: '2026-05-28',
+              status: 'Quoted',
+              priority: 'Medium',
+              description: 'Inquiry for prompt custom steel parts.',
+              items: [
+                { id: 'p2', name: 'Prompt Weld Parts', quantity: 15, specs: 'Material: Mild Steel' }
+              ],
+              createdBy: 'demo_user',
+              createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString()
+            }
+          ];
+          localStorage.setItem(localBackupKey, JSON.stringify(SEED_RFQS));
+          cached = JSON.stringify(SEED_RFQS);
+        }
+      }
+
+      let parsed = JSON.parse(cached || '[]') as T[];
 
       // Apply dynamic filtering specs locally
       parsed = parsed.filter((item: any) => {
+        // Automatically scope by active plant if applicable, fallback to backwards compatibility
+        if (activePlantId && activePlantId !== 'all') {
+          const isPlantScopedPath = ['customers', 'rfqs', 'orders', 'dispatches', 'productionJobs', 'stockItems'].some(entity => collectionPath.includes(entity) || (localBackupKey && localBackupKey.includes(entity)));
+          if (isPlantScopedPath) {
+            // Include if explicitly assigned to this plant, or if it has NO plantId (legacy)
+            if (item.plantId && item.plantId !== 'all' && item.plantId !== activePlantId) {
+              return false;
+            }
+          }
+        }
+
         for (const [key, val] of Object.entries(filters)) {
           if (val === undefined || val === null || val === '') continue;
 
@@ -178,7 +321,7 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
       console.error('Failed to prepare local sandbox pagination cache:', err);
       localFilteredCacheRef.current = [];
     }
-  }, [filters, localBackupKey, sortField, sortDirection]);
+  }, [filters, localBackupKey, sortField, sortDirection, activePlantId, collectionPath]);
 
   // Initial load or resetting sequence
   const resetAndFetch = useCallback(async () => {
@@ -213,7 +356,7 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
         // Scoped static parameters if existing
         for (const [key, val] of Object.entries(filters)) {
           if (val === undefined || val === null || val === '') continue;
-          if (['search', 'startDate', 'endDate', 'status', 'assignedTo', 'tag', 'assignedSalesUserId', 'city'].includes(key)) {
+          if (['search', 'startDate', 'endDate', 'status', 'assignedTo', 'tag', 'assignedSalesUserId', 'city', 'type'].includes(key)) {
             // These require composite indexes or complex local search maps
             continue;
           }
@@ -232,11 +375,25 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
           list.push({ id: docSnap.id, ...docSnap.data() } as T);
         });
 
-        // Local filtering to support fuzzy text searches & nested ranges without requiring heavy index configs
+        // Local filtering to support fuzzy text searches, backwards compatibility & nested ranges without requiring heavy index configs
         let finalSet = list;
+
+        // Automatically scope by active plant if applicable, maintaining legacy record visibility
+        if (activePlantId && activePlantId !== 'all') {
+          const isPlantScopedPath = ['customers', 'rfqs', 'orders', 'dispatches', 'productionJobs', 'stockItems'].some(entity => collectionPath.includes(entity));
+          if (isPlantScopedPath) {
+            finalSet = finalSet.filter((item: any) => 
+              !item.plantId || item.plantId === 'all' || item.plantId === activePlantId
+            );
+          }
+        }
+
         if (filters.search) {
           const s = String(filters.search).toLowerCase();
           finalSet = finalSet.filter(item => JSON.stringify(item).toLowerCase().includes(s));
+        }
+        if (filters.type) {
+          finalSet = finalSet.filter(item => String((item as any).type || '').toLowerCase() === String(filters.type).toLowerCase());
         }
         if (filters.status) {
           const statusVal = String(filters.status).toLowerCase();
@@ -274,11 +431,11 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
         setLoading(false);
       }
     }
-  }, [collectionPath, isSandbox, pageSize, sortField, sortDirection, filters, buildLocalSandboxCache, tenant?.id]); // Added tenant?.id dependency
+  }, [collectionPath, isSandbox, pageSize, sortField, sortDirection, filters, buildLocalSandboxCache, tenant?.id, activePlantId]); 
 
   useEffect(() => {
     resetAndFetch();
-  }, [collectionPath, isSandbox, sortField, sortDirection, JSON.stringify(filters), tenant?.id]); // Added tenant?.id dependency
+  }, [collectionPath, isSandbox, sortField, sortDirection, JSON.stringify(filters), tenant?.id, activePlantId]); 
 
   // Progressive load more function
   const loadMore = async () => {
@@ -317,7 +474,7 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
         // Dynamic filters matching target conditions
         for (const [key, val] of Object.entries(filters)) {
           if (val === undefined || val === null || val === '') continue;
-          if (['search', 'startDate', 'endDate', 'status', 'assignedTo', 'tag', 'assignedSalesUserId', 'city'].includes(key)) continue;
+          if (['search', 'startDate', 'endDate', 'status', 'assignedTo', 'tag', 'assignedSalesUserId', 'city', 'type'].includes(key)) continue;
           constraints.push(where(key, '==', val));
         }
 
@@ -335,9 +492,23 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
 
         // local searches
         let finalSet = list;
+        
+        // Scope backwards-compatible plants
+        if (activePlantId && activePlantId !== 'all') {
+          const isPlantScopedPath = ['customers', 'rfqs', 'orders', 'dispatches', 'productionJobs', 'stockItems'].some(entity => collectionPath.includes(entity));
+          if (isPlantScopedPath) {
+            finalSet = finalSet.filter((item: any) => 
+              !item.plantId || item.plantId === 'all' || item.plantId === activePlantId
+            );
+          }
+        }
+
         if (filters.search) {
           const s = String(filters.search).toLowerCase();
           finalSet = finalSet.filter(item => JSON.stringify(item).toLowerCase().includes(s));
+        }
+        if (filters.type) {
+          finalSet = finalSet.filter(item => String((item as any).type || '').toLowerCase() === String(filters.type).toLowerCase());
         }
         if (filters.status) {
           const statusVal = String(filters.status).toLowerCase();

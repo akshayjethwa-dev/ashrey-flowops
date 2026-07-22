@@ -23,7 +23,8 @@ import {
   X,
   Package,
   Receipt,
-  BarChart2
+  BarChart2,
+  Factory
 } from 'lucide-react';
 import { UserRole } from '../../types';
 
@@ -62,7 +63,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
   ];
 
   const settingItems: SidebarItem[] = [
-    { to: '/settings/tenant', label: 'Plant Profile', icon: Building, roles: ['admin'] },
+    { to: '/settings/tenant', label: 'Company Profile', icon: Building, roles: ['admin'] },
+    { to: '/settings/plants', label: 'Manage Plants', icon: Factory, roles: ['admin'] },
     { to: '/settings/production-stages', label: 'Process Stages', icon: Settings, roles: ['admin'] },
     { to: '/settings/whatsapp', label: 'WhatsApp Outbox', icon: MessageSquare, roles: ['admin', 'sales'] },
     { to: '/settings/users', label: 'Staff Roster', icon: UserPlus, roles: ['admin'] },

@@ -11,6 +11,7 @@ import {
   doc
 } from 'firebase/firestore';
 import { Customer } from '../types';
+import { useAuth } from './useAuth';
 
 // Helper to completely strip any undefined properties before they hit Firebase
 const sanitizePayload = (payload: any) => {
@@ -27,6 +28,7 @@ export const useCustomersList = (
   tenantId: string | undefined, 
   filters?: { type?: 'customer' | 'dealer' | ''; search?: string }
 ) => {
+  const { activePlantId } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +150,7 @@ export const useCustomersList = (
     const finalCust: Customer = {
       ...newCust,
       tenantId: activeTenantId,
-      // FIX: Use standard ISO strings universally so the UI sorts descending perfectly without waiting for Firebase server sync
+      // Use standard ISO strings universally so the UI sorts descending perfectly without waiting for Firebase server sync
       createdAt: new Date().toISOString() 
     };
 
@@ -228,6 +230,13 @@ export const useCustomersList = (
   // Filter clients locally for super speedy instant UI updates
   const filteredCustomers = customers.filter(customer => {
     if (!customer) return false;
+    
+    // Multi-plant scope visibility check (ensuring backward compatibility for legacy non-plant records)
+    if (activePlantId && activePlantId !== 'all') {
+      if (customer.plantId && customer.plantId !== 'all' && customer.plantId !== activePlantId) {
+        return false;
+      }
+    }
     
     // 1. Filter by Type (customer or dealer)
     if (filters?.type && customer.type !== filters.type) {

@@ -26,8 +26,8 @@ import {
 import { TextField } from '../../components/ui/TextField';
 
 export const CustomersListPage: React.FC = () => {
-  const authContext = useAuth() as any;
-  const activeTenantId = authContext?.tenant?.id || authContext?.tenantId || authContext?.user?.tenantId;
+  const { tenant, activePlantId, plants = [] } = useAuth();
+  const activeTenantId = tenant?.id;
   
   const navigate = useNavigate();
 
@@ -58,7 +58,8 @@ export const CustomersListPage: React.FC = () => {
     loadingMore,
     hasMore,
     error: listError,
-    loadMore
+    loadMore,
+    reset
   } = usePaginatedCollectionQuery<Customer & { id: string }>(
     activeTenantId ? `tenants/${activeTenantId}/customers` : '',
     {
@@ -102,6 +103,7 @@ export const CustomersListPage: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [assignedSalesUserId, setAssignedSalesUserId] = useState('');
+  const [plantId, setPlantId] = useState('all');
 
   // Reset form helper
   const resetForm = () => {
@@ -117,11 +119,13 @@ export const CustomersListPage: React.FC = () => {
     setNotes('');
     setTagsInput('');
     setAssignedSalesUserId('');
+    setPlantId(activePlantId && activePlantId !== 'all' ? activePlantId : 'all');
     setEditingCustomer(null);
   };
 
   const handleOpenCreate = () => {
     resetForm();
+    setPlantId(activePlantId && activePlantId !== 'all' ? activePlantId : 'all');
     setIsDrawerOpen(true);
   };
 
@@ -140,6 +144,7 @@ export const CustomersListPage: React.FC = () => {
     setNotes(cust.notes || '');
     setTagsInput(cust.tags ? cust.tags.join(', ') : '');
     setAssignedSalesUserId(cust.assignedSalesUserId || '');
+    setPlantId(cust.plantId || 'all');
     setIsDrawerOpen(true);
   };
 
@@ -169,7 +174,8 @@ export const CustomersListPage: React.FC = () => {
       city,
       notes,
       tags: processedTags,
-      assignedSalesUserId
+      assignedSalesUserId,
+      plantId: plantId === 'all' ? 'all' : plantId
     };
 
     try {
@@ -183,10 +189,8 @@ export const CustomersListPage: React.FC = () => {
       setIsDrawerOpen(false);
       resetForm();
 
-      // FIX: Force UI refresh if running in local Sandbox mode so new data loads into the paginated view
-      if (isSandbox) {
-        window.location.reload();
-      }
+      // Refresh the paginated collection query list to fetch the newly updated/created customer
+      reset();
 
     } catch (err: any) {
       alert(err.message || 'An error occurred while saving.');
@@ -201,7 +205,7 @@ export const CustomersListPage: React.FC = () => {
       try {
         await deleteCustomer(id);
         alert('Customer record deleted.');
-        if (isSandbox) window.location.reload();
+        reset();
       } catch (err: any) {
         alert(`Error deleting customer: ${err.message}`);
       }
@@ -384,6 +388,13 @@ export const CustomersListPage: React.FC = () => {
                             </span>
                           </div>
                         )}
+                        {c.plantId && c.plantId !== 'all' && (
+                          <div className="text-[10px] mt-1 text-slate-500">
+                            <span className="font-mono bg-amber-50/80 text-amber-800 px-1.5 py-0.5 rounded border border-amber-150 font-semibold text-[9px] inline-flex items-center gap-1">
+                              Plant: {plants.find(p => p.id === c.plantId)?.name || c.plantId}
+                            </span>
+                          </div>
+                        )}
                         {/* Tags display */}
                         {c.tags && c.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
@@ -468,8 +479,13 @@ export const CustomersListPage: React.FC = () => {
                     </h3>
                     <p className="text-[10px] font-mono text-slate-500 leading-none mt-0.5">Contact: {c.contactPerson}</p>
                     {c.assignedSalesUserId && (
-                      <p className="text-[9px] font-mono text-indigo-755 font-semibold bg-indigo-50/40 px-1 py-0.5 rounded border border-indigo-100 inline-block mt-1 select-none">
+                      <p className="text-[9px] font-mono text-indigo-755 font-semibold bg-indigo-50/40 px-1 py-0.5 rounded border border-indigo-100 inline-block mt-1 select-none mr-1.5">
                         Rep: {salesExecutives.find(u => u.id === c.assignedSalesUserId)?.name || 'Account Rep'}
+                      </p>
+                    )}
+                    {c.plantId && c.plantId !== 'all' && (
+                      <p className="text-[9px] font-mono text-amber-800 font-semibold bg-amber-50/80 px-1 py-0.5 rounded border border-amber-150 inline-block mt-1 select-none">
+                        Plant: {plants.find(p => p.id === c.plantId)?.name || c.plantId}
                       </p>
                     )}
                   </div>
@@ -746,6 +762,26 @@ export const CustomersListPage: React.FC = () => {
                     {salesExecutives.map((exec) => (
                       <option key={exec.id} value={exec.id}>
                         {exec.name} ({exec.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Multi-Plant Assignment */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-mono">
+                    Facility / Plant Scope
+                  </label>
+                  <select
+                    id="form-plant-scope"
+                    className="w-full text-xs font-sans border border-slate-200 bg-slate-50 rounded-lg p-2.5 focus:bg-white focus:outline-hidden text-slate-800"
+                    value={plantId}
+                    onChange={(e) => setPlantId(e.target.value)}
+                  >
+                    <option value="all">-- Company-Wide (All Plants / Facilities) --</option>
+                    {plants.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.location || 'Active Facility'})
                       </option>
                     ))}
                   </select>

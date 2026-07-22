@@ -21,6 +21,8 @@ export interface UserProfile {
   phone?: string;
   createdAt: any;
   isSuperAdmin?: boolean;
+  assignedPlantIds?: string[]; // Scoped Plant assignments
+  assignedStageIds?: string[]; // Scoped Process Stage assignments
 }
 
 export interface RFQItem {
@@ -36,6 +38,7 @@ export interface Rfq {
   id: string;
   rfqNumber?: string;
   tenantId: string;
+  plantId?: string; // Scoped Plant
   customerId?: string;
   customerName: string;
   contactName?: string;
@@ -120,6 +123,7 @@ export interface Order {
   tenantId: string;
   quoteId: string;
   orderNumber: string;
+  plantId?: string; // Scoped Plant
   customerName: string;
   phone?: string;
   items: QuoteItem[];
@@ -142,6 +146,7 @@ export interface ProductionJob {
   id: string;
   tenantId: string;
   orderId: string;
+  plantId?: string; // Scoped Plant
   itemName: string;
   quantity: number;
   currentStage: string;
@@ -155,6 +160,7 @@ export interface Dispatch {
   id: string;
   tenantId: string;
   orderId: string;
+  plantId?: string; // Scoped Plant
   jobId?: string;
   dispatchNumber?: string;
   invoiceNumber: string;
@@ -223,6 +229,7 @@ export interface DashboardSummary {
 export interface Customer {
   id?: string;
   tenantId: string;
+  plantId?: string; // Optional: empty or 'all' means company-wide, otherwise plant-specific
   name: string;
   type: 'customer' | 'dealer';
   contactPerson: string;
@@ -428,6 +435,7 @@ export interface ActivityEvent {
   action?: string;
   entityLabel?: string;
 }
+
 export interface Attachment {
   id: string;
   fileName: string;
@@ -516,6 +524,7 @@ export type StockCategory = 'raw_material' | 'finished_goods' | 'consumable' | '
 export interface StockItem {
   id: string;
   tenantId: string;
+  plantId?: string; // Scoped Plant
   name: string;
   code: string;
   category: StockCategory;
@@ -689,8 +698,12 @@ export interface AppNotification {
   createdAt: any;
 }
 
-
-
-
-
-
+export interface Plant {
+  id: string;
+  tenantId: string;
+  name: string;
+  location: string;
+  gstin?: string;
+  processStages: ProductionStageConfig[];
+  createdAt: string;
+}

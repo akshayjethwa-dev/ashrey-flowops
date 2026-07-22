@@ -20,9 +20,10 @@ import {
   updateDoc,
   serverTimestamp,
   writeBatch,
-  limit
+  limit,
+  onSnapshot
 } from 'firebase/firestore';
-import { UserProfile, UserRole, Tenant } from '../types';
+import { UserProfile, UserRole, Tenant, Plant, ProductionStageConfig } from '../types';
 import { handleFirestoreError, OperationType } from '../firebaseErrors';
 
 export type AuthStatus = 'loading' | 'unauthenticated' | 'needs_onboarding' | 'active' | 'suspended';
@@ -33,15 +34,38 @@ interface AuthContextType {
   tenant: Tenant | null;
   authStatus: AuthStatus;
   isSandboxMode: boolean;
+  activePlantId: string | null;
+  setActivePlantId: (plantId: string | null) => void;
+  plants: Plant[];
+  loadingPlants: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   switchToSandboxRole: (role: UserRole) => void;
   initializeSandbox: (companyName: string) => void;
   updateProfileLocally: (updates: Partial<UserProfile>) => void;
   setAuthStatus: (status: AuthStatus) => void;
+  refreshPlants: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const DEFAULT_PUNE_STAGES: ProductionStageConfig[] = [
+  { id: 'pune_material_cutting', name: 'Material Cutting', color: 'indigo', isFinalStage: false, order: 0 },
+  { id: 'pune_heating_welding', name: 'Pre-Heating & Welding', color: 'blue', isFinalStage: false, order: 1 },
+  { id: 'pune_cnc_machining', name: 'Precision CNC Machining', color: 'amber', isFinalStage: false, order: 2 },
+  { id: 'pune_assembly', name: 'Shopfloor Assembly', color: 'purple', isFinalStage: false, order: 3 },
+  { id: 'pune_quality_check', name: 'NDT & Quality Check', color: 'pink', isFinalStage: false, order: 4 },
+  { id: 'pune_ready_dispatch', name: 'Ready for Dispatch', color: 'green', isFinalStage: true, order: 5 }
+];
+
+const DEFAULT_VADODARA_STAGES: ProductionStageConfig[] = [
+  { id: 'vadodara_raw_material', name: 'Raw Material Intake', color: 'indigo', isFinalStage: false, order: 0 },
+  { id: 'vadodara_casting', name: 'Casting & Molding', color: 'blue', isFinalStage: false, order: 1 },
+  { id: 'vadodara_fettling', name: 'Fettling & Grinding', color: 'amber', isFinalStage: false, order: 2 },
+  { id: 'vadodara_heat_treatment', name: 'Heat Treatment', color: 'purple', isFinalStage: false, order: 3 },
+  { id: 'vadodara_ndt_testing', name: 'NDT Testing', color: 'pink', isFinalStage: false, order: 4 },
+  { id: 'vadodara_packaging_ready', name: 'Packaging & Ready', color: 'green', isFinalStage: true, order: 5 }
+];
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -49,6 +73,161 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus>('loading');
   const [isSandboxMode, setIsSandboxMode] = useState(false);
+
+  const [activePlantId, setActivePlantIdState] = useState<string | null>(null);
+  const [plants, setPlants] = useState<Plant[]>([]);
+  const [loadingPlants, setLoadingPlants] = useState(false);
+
+  const setActivePlantId = (id: string | null) => {
+    setActivePlantIdState(id);
+    if (id) {
+      localStorage.setItem('flowops_active_plant_id', id);
+    } else {
+      localStorage.removeItem('flowops_active_plant_id');
+    }
+  };
+
+  // Reactively sync plants and active plant selection
+  useEffect(() => {
+    if (!tenant?.id) {
+      setPlants([]);
+      setLoadingPlants(false);
+      return;
+    }
+
+    setLoadingPlants(true);
+    const isSandbox = isSandboxMode || localStorage.getItem('isSandboxMode') === 'true' || !db;
+
+    if (isSandbox) {
+      try {
+        const cached = localStorage.getItem(`flowops_plants_${tenant.id}`);
+        let plantList: Plant[] = [];
+        if (cached) {
+          plantList = JSON.parse(cached);
+        } else {
+          plantList = [
+            {
+              id: 'plant-pune',
+              tenantId: tenant.id,
+              name: 'Pune Heavy Forge Facility',
+              location: 'Plot 104, MIDC Phase II, Chikhli, Pune, MH',
+              gstin: '27AAACB1234F1Z1',
+              processStages: DEFAULT_PUNE_STAGES,
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'plant-vadodara',
+              tenantId: tenant.id,
+              name: 'Vadodara Foundry Plant',
+              location: 'Plot 42, GIDC Industrial Estate, Sector 3, Vadodara, Gujarat',
+              gstin: '24AAACB1234F1Z2',
+              processStages: DEFAULT_VADODARA_STAGES,
+              createdAt: new Date().toISOString()
+            }
+          ];
+          localStorage.setItem(`flowops_plants_${tenant.id}`, JSON.stringify(plantList));
+        }
+        setPlants(plantList);
+
+        // Retrieve active plant from localStorage
+        const savedPlantId = localStorage.getItem('flowops_active_plant_id');
+        if (savedPlantId && (savedPlantId === 'all' || plantList.some(p => p.id === savedPlantId))) {
+          if (profile?.assignedPlantIds && profile.assignedPlantIds.length > 0 && !profile.assignedPlantIds.includes(savedPlantId) && savedPlantId !== 'all') {
+            setActivePlantIdState(profile.assignedPlantIds[0]);
+          } else {
+            setActivePlantIdState(savedPlantId);
+          }
+        } else {
+          if (profile?.assignedPlantIds && profile.assignedPlantIds.length > 0) {
+            setActivePlantIdState(profile.assignedPlantIds[0]);
+          } else {
+            setActivePlantIdState('all');
+          }
+        }
+        setLoadingPlants(false);
+      } catch (e) {
+        console.error('Error loading sandbox plants:', e);
+        setLoadingPlants(false);
+      }
+    } else {
+      // Production Firebase
+      const colRef = collection(db, 'tenants', tenant.id, 'plants');
+      const unsubscribe = onSnapshot(colRef, async (snap) => {
+        let list: Plant[] = [];
+        snap.forEach(d => {
+          list.push({ id: d.id, ...d.data() } as Plant);
+        });
+
+        if (list.length === 0) {
+          try {
+            const batch = writeBatch(db);
+            const initialPlants: Plant[] = [
+              {
+                id: 'plant-pune',
+                tenantId: tenant.id,
+                name: 'Pune Heavy Forge Facility',
+                location: 'Plot 104, MIDC Phase II, Chikhli, Pune, MH',
+                gstin: '27AAACB1234F1Z1',
+                processStages: DEFAULT_PUNE_STAGES,
+                createdAt: new Date().toISOString()
+              },
+              {
+                id: 'plant-vadodara',
+                tenantId: tenant.id,
+                name: 'Vadodara Foundry Plant',
+                location: 'Plot 42, GIDC Industrial Estate, Sector 3, Vadodara, Gujarat',
+                gstin: '24AAACB1234F1Z2',
+                processStages: DEFAULT_VADODARA_STAGES,
+                createdAt: new Date().toISOString()
+              }
+            ];
+
+            initialPlants.forEach(p => {
+              const dRef = doc(db, 'tenants', tenant.id, 'plants', p.id);
+              batch.set(dRef, {
+                tenantId: p.tenantId,
+                name: p.name,
+                location: p.location,
+                gstin: p.gstin || '',
+                processStages: p.processStages,
+                createdAt: p.createdAt
+              });
+            });
+
+            await batch.commit();
+            list = initialPlants;
+          } catch (err) {
+            console.error('Error seeding default plants in Firestore', err);
+          }
+        }
+
+        list.sort((a, b) => a.name.localeCompare(b.name));
+        setPlants(list);
+
+        // Determine active plant
+        const savedPlantId = localStorage.getItem('flowops_active_plant_id');
+        if (savedPlantId && (savedPlantId === 'all' || list.some(p => p.id === savedPlantId))) {
+          if (profile?.assignedPlantIds && profile.assignedPlantIds.length > 0 && !profile.assignedPlantIds.includes(savedPlantId) && savedPlantId !== 'all') {
+            setActivePlantIdState(profile.assignedPlantIds[0]);
+          } else {
+            setActivePlantIdState(savedPlantId);
+          }
+        } else {
+          if (profile?.assignedPlantIds && profile.assignedPlantIds.length > 0) {
+            setActivePlantIdState(profile.assignedPlantIds[0]);
+          } else {
+            setActivePlantIdState('all');
+          }
+        }
+        setLoadingPlants(false);
+      }, (err) => {
+        console.error('Error loading plants:', err);
+        setLoadingPlants(false);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [tenant?.id, isSandboxMode, profile?.assignedPlantIds]);
 
   // Attempt to load sandbox from LocalStorage to persist reload states
   useEffect(() => {
@@ -322,6 +501,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshPlants = () => {
+    if (!tenant?.id) return;
+    const isSandbox = isSandboxMode || localStorage.getItem('isSandboxMode') === 'true' || !db;
+    if (isSandbox) {
+      try {
+        const cached = localStorage.getItem(`flowops_plants_${tenant.id}`);
+        if (cached) {
+          setPlants(JSON.parse(cached));
+        }
+      } catch (e) {
+        console.error('Error reloading sandbox plants:', e);
+      }
+    }
+    // Production uses onSnapshot, meaning real-time updates happen automatically without forced manual refreshes
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -329,12 +524,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       tenant,
       authStatus,
       isSandboxMode,
+      activePlantId,
+      setActivePlantId,
+      plants,
+      loadingPlants,
       signInWithGoogle, 
       signOut, 
       switchToSandboxRole, 
       initializeSandbox,
       updateProfileLocally,
-      setAuthStatus
+      setAuthStatus,
+      refreshPlants
     }}>
       {children}
     </AuthContext.Provider>

@@ -7,7 +7,9 @@ export type WorkOrderStatus =
   | 'in_progress'
   | 'paused'
   | 'completed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'split'
+  | 'merged';
 
 export type WorkOrderPriority = 'low' | 'medium' | 'high' | 'urgent';
 
@@ -75,10 +77,97 @@ export interface WorkOrder {
   assignedOperatorIds?: string[];
   assignedOperatorNames?: string[];
   notes?: string;
+  // Splitting & Merging Genealogy Tracking
+  parentWorkOrderId?: string;
+  parentOrderNumber?: string;
+  childWorkOrderIds?: string[];
+  childOrderNumbers?: string[];
+  isSplitParent?: boolean;
+  isChild?: boolean;
+  splitRatio?: number;
+  splitFromQuantity?: number;
+  splitReason?: string;
+  splitAt?: string;
+  splitByUserId?: string;
+  splitByName?: string;
+  
+  mergedFromWorkOrderIds?: string[];
+  mergedFromOrderNumbers?: string[];
+  isMerged?: boolean;
+  mergedAt?: string;
+  mergedReason?: string;
+  mergedByUserId?: string;
+  mergedByName?: string;
+
+  genealogyHistory?: WorkOrderGenealogyEvent[];
   createdAt: any;
   updatedAt: any;
   updatedBy?: string;
   updatedByName?: string;
+}
+
+export type GenealogyEventType = 'created' | 'split' | 'merged' | 'material_reallocated';
+
+export interface WorkOrderGenealogyEvent {
+  id: string;
+  type: GenealogyEventType;
+  timestamp: string;
+  userId?: string;
+  userName?: string;
+  description: string;
+  relatedWorkOrderIds: string[];
+  relatedOrderNumbers: string[];
+  quantityBefore?: number;
+  quantityAfter?: number;
+  details?: Record<string, any>;
+}
+
+export interface SplitChildDraft {
+  childOrderNumber: string;
+  quantity: number;
+  dueDate: string;
+  targetMachineId?: string;
+  targetMachineName?: string;
+  targetShiftId?: string;
+  targetShiftName?: string;
+  priority?: WorkOrderPriority;
+  notes?: string;
+  assignedOperatorIds?: string[];
+  assignedOperatorNames?: string[];
+}
+
+export interface ChildMaterialAllocation {
+  bomItemId: string;
+  partNumber: string;
+  description: string;
+  itemType: BomItemType;
+  unit: string;
+  quantityPerUnit: number;
+  parentTotalRequired: number;
+  childAllocatedQuantity: number;
+  stockAvailable?: number;
+  allocatedStatus: 'allocated' | 'partial' | 'shortage' | 'purchase_needed';
+}
+
+export interface SplitExecutionParams {
+  parentWorkOrderId: string;
+  splitReason: string;
+  splits: SplitChildDraft[];
+  userId?: string;
+  userName?: string;
+  archiveParent?: boolean;
+}
+
+export interface MergeExecutionParams {
+  sourceWorkOrderIds: string[];
+  targetOrderNumber?: string;
+  mergedQuantity?: number;
+  dueDate: string;
+  priority: WorkOrderPriority;
+  mergedReason: string;
+  notes?: string;
+  userId?: string;
+  userName?: string;
 }
 
 export interface WorkOrderGenerationPlan {

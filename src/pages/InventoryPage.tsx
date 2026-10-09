@@ -28,7 +28,27 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Eye,
+  Building2,
+  Warehouse,
+  Boxes,
+  Lock,
+  Unlock,
+  SlidersHorizontal,
+  LayoutGrid,
 } from 'lucide-react';
+import { useMultiLocationInventory } from '../hooks/useMultiLocationInventory';
+import { MultiLocationStockMatrix } from '../components/inventory/MultiLocationStockMatrix';
+import { LocationHierarchyExplorer } from '../components/inventory/LocationHierarchyExplorer';
+import { StockTransferModal } from '../components/inventory/StockTransferModal';
+import { StockReservationModal } from '../components/inventory/StockReservationModal';
+import { StockAdjustModal } from '../components/inventory/StockAdjustModal';
+import { LocationCreateModal } from '../components/inventory/LocationCreateModal';
+import { StockTransferHistoryDrawer } from '../components/inventory/StockTransferHistoryDrawer';
+import {
+  BinStockRecord,
+  StockReservation,
+  StockTransferRecord,
+} from '../types/inventoryLocation';
 
 // ── STEP 4.3 — Scanner imports ─────────────────────────────
 import { BarcodeScanner } from '../components/BarcodeScanner';
@@ -71,6 +91,28 @@ export const InventoryPage: React.FC = () => {
   });
 
   const { addStockEntry, submitting: entrySubmitting } = useAddStockEntry(tenant?.id);
+
+  // ── Multi-Location Real-Time Inventory ────────────────────
+  const mlInventory = useMultiLocationInventory(selectedPlantId);
+  const [viewMode, setViewMode] = useState<
+    'matrix' | 'hierarchy' | 'register' | 'transfers'
+  >('matrix');
+
+  // Multi-location modal states
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [transferSourceRecord, setTransferSourceRecord] = useState<BinStockRecord | null>(null);
+
+  const [reservationModalOpen, setReservationModalOpen] = useState(false);
+  const [activeReservationRecord, setActiveReservationRecord] = useState<BinStockRecord | null>(null);
+
+  const [adjustModalOpen, setAdjustModalOpen] = useState(false);
+  const [activeAdjustRecord, setActiveAdjustRecord] = useState<BinStockRecord | null>(null);
+
+  const [locationCreateModalOpen, setLocationCreateModalOpen] = useState(false);
+  const [locationCreatePlantId, setLocationCreatePlantId] = useState<string | undefined>(undefined);
+  const [locationCreateStoreId, setLocationCreateStoreId] = useState<string | undefined>(undefined);
+
+  const [transferHistoryOpen, setTransferHistoryOpen] = useState(false);
 
   // ── Detail side drawer ────────────────────────────────────
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
@@ -270,6 +312,14 @@ export const InventoryPage: React.FC = () => {
     }
   };
 
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    }).format(val || 0);
+  };
+
   const getCategoryLabel = (catStr: StockCategory) => {
     switch (catStr) {
       case 'raw_material':
@@ -446,6 +496,33 @@ export const InventoryPage: React.FC = () => {
 
         {/* Action Controls */}
         <div className="flex flex-wrap gap-2 items-stretch">
+          <button
+            onClick={() => {
+              setTransferSourceRecord(null);
+              setTransferModalOpen(true);
+            }}
+            id="transfer-stock-btn"
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono uppercase py-2.5 px-3.5 rounded-lg font-bold shadow-sm transition-all cursor-pointer"
+            title="Move stock between bins, stores, or facilities"
+          >
+            <ArrowRightLeft className="h-4 w-4" />
+            Transfer Stock
+          </button>
+
+          <button
+            onClick={() => {
+              setLocationCreatePlantId(selectedPlantId === 'all' ? undefined : selectedPlantId);
+              setLocationCreateStoreId(undefined);
+              setLocationCreateModalOpen(true);
+            }}
+            id="add-location-btn"
+            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-mono uppercase py-2.5 px-3 rounded-lg font-bold shadow-sm transition-all cursor-pointer"
+            title="Add a new store or storage bin to location hierarchy"
+          >
+            <Building2 className="h-4 w-4" />
+            Add Location
+          </button>
+
           {/* Scan Mode Selector + Scan Button */}
           <div className="flex items-stretch rounded-lg overflow-hidden border border-slate-300 shadow-sm">
             <select
@@ -572,59 +649,393 @@ export const InventoryPage: React.FC = () => {
         </div>
       )}
 
-      {/* 2. KPI Board */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200/80 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
-              Total Registered SKUs
-            </p>
-            <h3 className="text-2xl font-black text-slate-900 mt-1">{totalSKUsCount}</h3>
-          </div>
-          <div className="h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
-            <Layers className="h-5 w-5" />
-          </div>
+      {/* ── Primary Module Navigation Tabs ─────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setViewMode('matrix')}
+            id="tab-multi-location-matrix"
+            className={`px-3.5 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              viewMode === 'matrix'
+                ? 'bg-slate-900 text-white shadow-md shadow-slate-900/10'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <LayoutGrid className="h-4 w-4 text-sky-400" />
+            Multi-Location Stock Matrix
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] ${
+                viewMode === 'matrix' ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {mlInventory.kpis.totalSkusCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('hierarchy')}
+            id="tab-location-hierarchy"
+            className={`px-3.5 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              viewMode === 'hierarchy'
+                ? 'bg-slate-900 text-white shadow-md shadow-slate-900/10'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <Building2 className="h-4 w-4 text-indigo-400" />
+            Location Hierarchy (Plant → Store → Bin)
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] ${
+                viewMode === 'hierarchy' ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {mlInventory.stores.length} Stores
+            </span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('register')}
+            id="tab-sku-register"
+            className={`px-3.5 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              viewMode === 'register'
+                ? 'bg-slate-900 text-white shadow-md shadow-slate-900/10'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <Package className="h-4 w-4 text-emerald-400" />
+            SKU Master Register
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] ${
+                viewMode === 'register' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {plantFilteredRawItems.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('transfers')}
+            id="tab-inter-location-transfers"
+            className={`px-3.5 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              viewMode === 'transfers'
+                ? 'bg-slate-900 text-white shadow-md shadow-slate-900/10'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <ArrowRightLeft className="h-4 w-4 text-amber-400" />
+            Inter-Location Transfers
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] ${
+                viewMode === 'transfers' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {mlInventory.transfers.length}
+            </span>
+          </button>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-rose-100 flex items-center justify-between shadow-xs">
-          <div>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-rose-500 font-bold">
-              Critical Outages
-            </p>
-            <h3 className="text-2xl font-black text-rose-600 mt-1">{criticalItemsCount}</h3>
-          </div>
-          <div className="h-10 w-10 bg-rose-50 rounded-lg flex items-center justify-center text-rose-500 animate-pulse">
-            <AlertTriangle className="h-5 w-5" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-amber-100 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-amber-600 font-bold">
-              Reorder Warnings
-            </p>
-            <h3 className="text-2xl font-black text-amber-600 mt-1">{warningItemsCount}</h3>
-          </div>
-          <div className="h-10 w-10 bg-amber-50 rounded-lg flex items-center justify-center text-amber-500">
-            <AlertTriangle className="h-5 w-5" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200/80 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
-              Finished Goods SKUs
-            </p>
-            <h3 className="text-2xl font-black text-slate-800 mt-1">{finishedSKUsCount}</h3>
-          </div>
-          <div className="h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center text-emerald-500">
-            <TrendingUp className="h-5 w-5" />
-          </div>
+        {/* Plant Scoper Select */}
+        <div className="flex items-center space-x-1.5 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs">
+          <span className="text-[10px] font-mono font-bold uppercase text-slate-400 shrink-0">
+            Plant Scope:
+          </span>
+          <select
+            value={selectedPlantId}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedPlantId(val);
+              mlInventory.setPlantFilter(val);
+              localStorage.setItem('inventory_selected_plant_id', val);
+            }}
+            className="text-xs font-bold text-slate-800 bg-transparent border-none focus:ring-0 p-0 pr-6 cursor-pointer"
+          >
+            <option value="all">🌐 All Plants (Enterprise View)</option>
+            {plants?.map((p) => (
+              <option key={p.id} value={p.id}>
+                🏭 {p.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* 3. Toolbar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-4">
+      {/* 2. KPI Board — Adapts to Selected Mode */}
+      {viewMode !== 'register' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: On-Hand Valuation */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">
+                Total On-Hand Asset Valuation
+              </p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">
+                {formatCurrency(mlInventory.kpis.totalOnHandValue)}
+              </h3>
+              <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                {mlInventory.kpis.totalSkusCount} SKUs in {mlInventory.kpis.totalActiveLocationsCount} Active Bins
+              </p>
+            </div>
+            <div className="h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-700 shrink-0">
+              <Package className="h-5 w-5" />
+            </div>
+          </div>
+
+          {/* Card 2: Reserved Capital (Locked) */}
+          <div className="bg-white p-4 rounded-xl border border-amber-200/80 shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-amber-700 font-bold flex items-center gap-1">
+                <Lock className="h-3 w-3" />
+                Reserved Capital (Locked)
+              </p>
+              <h3 className="text-2xl font-black text-amber-800 mt-1">
+                {formatCurrency(mlInventory.kpis.totalReservedValue)}
+              </h3>
+              <p className="text-[10px] text-amber-600 font-mono mt-0.5">
+                {mlInventory.kpis.activeReservationsCount} Active Work & Sales Order Holds
+              </p>
+            </div>
+            <div className="h-10 w-10 bg-amber-50 rounded-lg flex items-center justify-center text-amber-600 shrink-0">
+              <Lock className="h-5 w-5" />
+            </div>
+          </div>
+
+          {/* Card 3: Free Available Valuation */}
+          <div className="bg-white p-4 rounded-xl border border-emerald-200/80 shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-700 font-bold">
+                Free Available to Promise
+              </p>
+              <h3 className="text-2xl font-black text-emerald-800 mt-1">
+                {formatCurrency(mlInventory.kpis.totalAvailableValue)}
+              </h3>
+              <p className="text-[10px] text-emerald-600 font-mono mt-0.5">
+                {mlInventory.kpis.fullyAvailableCount} SKUs Uncommitted for Production
+              </p>
+            </div>
+            <div className="h-10 w-10 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600 shrink-0">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+          </div>
+
+          {/* Card 4: Inbound Purchase Pipeline */}
+          <div className="bg-white p-4 rounded-xl border border-sky-200/80 shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-sky-700 font-bold">
+                Pipeline On-Order (Inbound)
+              </p>
+              <h3 className="text-2xl font-black text-sky-800 mt-1">
+                {formatCurrency(mlInventory.kpis.totalOnOrderValue)}
+              </h3>
+              <p className="text-[10px] text-sky-600 font-mono mt-0.5">
+                {mlInventory.kpis.pendingInboundPosCount} Approved Vendor PO Shipments
+              </p>
+            </div>
+            <div className="h-10 w-10 bg-sky-50 rounded-lg flex items-center justify-center text-sky-600 shrink-0">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-4 rounded-xl border border-slate-200/80 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                Total Registered SKUs
+              </p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">{totalSKUsCount}</h3>
+            </div>
+            <div className="h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
+              <Layers className="h-5 w-5" />
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-rose-100 flex items-center justify-between shadow-xs">
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-rose-500 font-bold">
+                Critical Outages
+              </p>
+              <h3 className="text-2xl font-black text-rose-600 mt-1">{criticalItemsCount}</h3>
+            </div>
+            <div className="h-10 w-10 bg-rose-50 rounded-lg flex items-center justify-center text-rose-500 animate-pulse">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-amber-100 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-amber-600 font-bold">
+                Reorder Warnings
+              </p>
+              <h3 className="text-2xl font-black text-amber-600 mt-1">{warningItemsCount}</h3>
+            </div>
+            <div className="h-10 w-10 bg-amber-50 rounded-lg flex items-center justify-center text-amber-500">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-slate-200/80 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                Finished Goods SKUs
+              </p>
+              <h3 className="text-2xl font-black text-slate-800 mt-1">{finishedSKUsCount}</h3>
+            </div>
+            <div className="h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center text-emerald-500">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── View 1: Multi-Location Stock Matrix ──────────────── */}
+      {viewMode === 'matrix' && (
+        <MultiLocationStockMatrix
+          summaries={mlInventory.skuSummaries}
+          filterParams={mlInventory.filterParams}
+          onFilterChange={(params) =>
+            mlInventory.setFilterParams((prev) => ({ ...prev, ...params }))
+          }
+          onInitiateTransfer={(rec) => {
+            setTransferSourceRecord(rec);
+            setTransferModalOpen(true);
+          }}
+          onOpenReservationModal={(rec) => {
+            setActiveReservationRecord(rec);
+            setReservationModalOpen(true);
+          }}
+          onOpenAdjustModal={(rec) => {
+            setActiveAdjustRecord(rec);
+            setAdjustModalOpen(true);
+          }}
+        />
+      )}
+
+      {/* ── View 2: Location Hierarchy Explorer ──────────────── */}
+      {viewMode === 'hierarchy' && (
+        <LocationHierarchyExplorer
+          plants={plants || []}
+          stores={mlInventory.stores}
+          bins={mlInventory.bins}
+          binStockRecords={mlInventory.binStockRecords}
+          activeFilter={mlInventory.filterParams}
+          onSelectPlant={(pId) => {
+            setSelectedPlantId(pId);
+            mlInventory.setPlantFilter(pId);
+          }}
+          onSelectStore={(sId) => mlInventory.setStoreFilter(sId)}
+          onSelectBin={(bId) => {
+            mlInventory.setBinFilter(bId);
+            setViewMode('matrix');
+          }}
+          onOpenAddLocation={(pId, sId) => {
+            setLocationCreatePlantId(pId);
+            setLocationCreateStoreId(sId);
+            setLocationCreateModalOpen(true);
+          }}
+          onInitiateTransfer={(rec) => {
+            setTransferSourceRecord(rec);
+            setTransferModalOpen(true);
+          }}
+        />
+      )}
+
+      {/* ── View 3: Inter-Location Transfer Register ─────────── */}
+      {viewMode === 'transfers' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-150 pb-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <ArrowRightLeft className="h-5 w-5 text-amber-600" />
+                Inter-Location Stock Movements & Chain of Custody
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Audit ledger of material transfers across plant bins, racks, and stores.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setTransferSourceRecord(null);
+                setTransferModalOpen(true);
+              }}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold uppercase rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+            >
+              <ArrowRightLeft className="h-4 w-4" />
+              New Inter-Bin Transfer
+            </button>
+          </div>
+
+          {mlInventory.transfers.length === 0 ? (
+            <div className="py-16 text-center text-slate-400">
+              <History className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-slate-600">No stock transfers on record</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Execute your first bin-to-bin or store-to-store material transfer above.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-500 font-mono text-[10px] uppercase tracking-wider">
+                    <th className="py-3 px-4 font-semibold">Transfer ID</th>
+                    <th className="py-3 px-4 font-semibold">Material SKU</th>
+                    <th className="py-3 px-4 font-semibold">Source Location</th>
+                    <th className="py-3 px-4 font-semibold">Destination Location</th>
+                    <th className="py-3 px-4 font-semibold text-right">Quantity Moved</th>
+                    <th className="py-3 px-4 font-semibold text-right">Transfer Value</th>
+                    <th className="py-3 px-4 font-semibold">Purpose</th>
+                    <th className="py-3 px-4 font-semibold">Operator</th>
+                    <th className="py-3 px-4 font-semibold">Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {mlInventory.transfers.map((t) => (
+                    <tr key={t.id} className="hover:bg-slate-50">
+                      <td className="py-3 px-4 font-mono font-bold text-slate-900">{t.transferNumber}</td>
+                      <td className="py-3 px-4">
+                        <div className="font-mono font-bold text-slate-800">{t.stockItemCode}</div>
+                        <div className="text-[11px] text-slate-500">{t.stockItemName}</div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-mono text-slate-800 font-bold">{t.sourceBinCode}</span>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          {t.sourceStoreName} • {t.sourcePlantName}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-mono text-sky-700 font-bold">{t.targetBinCode}</span>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          {t.targetStoreName} • {t.targetPlantName}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono font-black text-slate-900">
+                        {t.qty} {t.unit}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono text-slate-700">
+                        {formatCurrency(t.totalValue)}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-[10px] font-mono uppercase bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold">
+                          {t.reason.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-slate-600 font-mono text-[11px]">{t.transferredByName}</td>
+                      <td className="py-3 px-4 text-slate-400 font-mono text-[10px]">
+                        {formatDateTime(t.timestamp)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── View 4: Classic SKU Master Register ──────────────── */}
+      {viewMode === 'register' && (
+        <>
+          {/* 3. Toolbar */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
           <div className="flex flex-nowrap overflow-x-auto gap-1.5 pb-1 md:pb-0 scrollbar-none">
             {(['all', 'raw_material', 'finished_goods', 'consumable', 'spare'] as const).map(
@@ -962,6 +1373,8 @@ export const InventoryPage: React.FC = () => {
           </>
         )}
       </div>
+    </>
+  )}
 
       {/* 5. Detail Side Drawer (unchanged) */}
       {activeItemId && activeItem && (
@@ -1554,6 +1967,51 @@ export const InventoryPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ── Multi-Location Modals ────────────────────────────── */}
+      <StockTransferModal
+        isOpen={transferModalOpen}
+        onClose={() => setTransferModalOpen(false)}
+        sourceRecord={transferSourceRecord}
+        allRecords={mlInventory.binStockRecords}
+        plants={plants || []}
+        stores={mlInventory.stores}
+        bins={mlInventory.bins}
+        onExecuteTransfer={mlInventory.executeTransfer}
+      />
+
+      <StockReservationModal
+        isOpen={reservationModalOpen}
+        onClose={() => setReservationModalOpen(false)}
+        record={activeReservationRecord}
+        reservations={mlInventory.reservations}
+        onAllocateReservation={mlInventory.allocateReservation}
+        onReleaseReservation={mlInventory.releaseReservation}
+      />
+
+      <StockAdjustModal
+        isOpen={adjustModalOpen}
+        onClose={() => setAdjustModalOpen(false)}
+        record={activeAdjustRecord}
+        onAdjustStock={mlInventory.adjustBinStock}
+      />
+
+      <LocationCreateModal
+        isOpen={locationCreateModalOpen}
+        onClose={() => setLocationCreateModalOpen(false)}
+        plants={plants || []}
+        stores={mlInventory.stores}
+        initialPlantId={locationCreatePlantId}
+        initialStoreId={locationCreateStoreId}
+        onCreateStore={mlInventory.createStore}
+        onCreateBin={mlInventory.createBin}
+      />
+
+      <StockTransferHistoryDrawer
+        isOpen={transferHistoryOpen}
+        onClose={() => setTransferHistoryOpen(false)}
+        transfers={mlInventory.transfers}
+      />
 
       {/* ── STEP 4.3 — Barcode Scanner Modal ─────────────────── */}
       <BarcodeScanner

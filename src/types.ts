@@ -887,3 +887,4 @@ export type {
 
 export * from './types/subcontractor';
 export * from './types/workOrder';
+export * from './types/inventoryLocation';

@@ -29,7 +29,11 @@ import {
   FileSpreadsheet,
   Sliders,
   Building2,
-  Zap
+  Zap,
+  FolderTree,
+  GitCommit,
+  CalendarClock,
+  LayoutGrid
 } from 'lucide-react';
 import { UserRole } from '../../types';
 import { getRoleTitle, getRoleBadgeColor } from '../../utils/permissions';
@@ -62,6 +66,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
     { to: '/rfqs', label: 'RFQs & Costing', icon: FolderSync, roles: ['admin', 'manager', 'sales', 'management', 'viewer'] },
     { to: '/rfqs/intake', label: 'RFQ Intake Hub', icon: Inbox, roles: ['admin', 'manager', 'sales', 'management'] },
     { to: '/bom-scrubber', label: 'BOM Scrubber', icon: FileSpreadsheet, roles: ['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer'] },
+    { to: '/boms', label: 'Multi-Level BOMs', icon: FolderTree, roles: ['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer'] },
+    { to: '/routings', label: 'Routings & Operations', icon: GitCommit, roles: ['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer'] },
+    { to: '/scheduling', label: 'Capacity Scheduler', icon: CalendarClock, roles: ['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer'] },
+    { to: '/gantt-planner', label: 'Gantt Planner', icon: LayoutGrid, roles: ['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer'] },
     { to: '/cost-engine', label: 'Cost Engine Rules', icon: Sliders, roles: ['admin', 'manager', 'sales', 'management'] },
     { to: '/subcontractors', label: 'Subcontractor RFQs', icon: Building2, roles: ['admin', 'manager', 'sales', 'production', 'management', 'store_keeper', 'viewer'] },
     { to: '/orders', label: 'Production Line', icon: Layers, roles: ['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'viewer'] },

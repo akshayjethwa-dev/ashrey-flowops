@@ -32,10 +32,17 @@ import {
   ArrowRight,
   Printer,
   FileText,
-  ExternalLink
+  ExternalLink,
+  CalendarClock,
+  Split,
+  Merge,
+  GitBranch
 } from 'lucide-react';
 import { GenerateWorkOrdersModal } from '../components/orders/GenerateWorkOrdersModal';
 import { ShopTravelerModal } from '../components/orders/ShopTravelerModal';
+import { WorkOrderSplitModal } from '../components/workOrders/WorkOrderSplitModal';
+import { WorkOrderMergeModal } from '../components/workOrders/WorkOrderMergeModal';
+import { WorkOrderGenealogyModal } from '../components/workOrders/WorkOrderGenealogyModal';
 
 // ── Step 4.4 — Scanner wiring ───────────────────────────────
 import { BarcodeScanner } from '../components/BarcodeScanner';
@@ -54,6 +61,8 @@ const STATUS_META: Record<
   paused:      { label: 'Paused',      color: 'text-amber-700',   bg: 'bg-amber-50',    border: 'border-amber-200',  icon: <PauseCircle size={12} /> },
   completed:   { label: 'Completed',   color: 'text-indigo-700',  bg: 'bg-indigo-50',   border: 'border-indigo-200', icon: <CheckCircle2 size={12} /> },
   cancelled:   { label: 'Cancelled',   color: 'text-rose-700',    bg: 'bg-rose-50',     border: 'border-rose-200',   icon: <X size={12} /> },
+  split:       { label: 'Split (Parent)', color: 'text-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-200', icon: <Split size={12} /> },
+  merged:      { label: 'Merged',      color: 'text-purple-700',  bg: 'bg-purple-50',   border: 'border-purple-200', icon: <Merge size={12} /> },
 };
 
 const PRIORITY_META: Record<
@@ -87,6 +96,8 @@ export const ProductionPage: React.FC = () => {
     error,
     updateOperation,
     updateWorkOrder,
+    splitWorkOrder,
+    mergeWorkOrders,
   } = useWorkOrders(tenant?.id, {
     plantId: selectedPlantId,
     statusFilter,
@@ -99,6 +110,12 @@ export const ProductionPage: React.FC = () => {
     () => workOrders.find((w) => w.id === activeWoId) ?? null,
     [workOrders, activeWoId]
   );
+
+  // ── Splitting & Merging Modal State ───────────────────────
+  const [splitModalWo, setSplitModalWo] = useState<WorkOrder | null>(null);
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+  const [selectedForMerge, setSelectedForMerge] = useState<WorkOrder[]>([]);
+  const [genealogyWoId, setGenealogyWoId] = useState<string | null>(null);
 
   // ── Sales Order → Work Order Generation & Shop Traveler Modals ──
   const [isSoPickerOpen, setIsSoPickerOpen] = useState(false);
@@ -329,6 +346,27 @@ export const ProductionPage: React.FC = () => {
           />
 
           <button
+            onClick={() => navigate('/scheduling')}
+            className="flex items-center gap-2 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/80 text-xs font-mono uppercase py-2 px-3.5 rounded-lg font-bold shadow-xs transition-all cursor-pointer"
+            title="Inspect Machine Capacity & Bottlenecks"
+          >
+            <CalendarClock className="h-4 w-4 text-indigo-400" />
+            <span>Capacity Scheduler</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedForMerge([]);
+              setIsMergeModalOpen(true);
+            }}
+            className="flex items-center gap-2 bg-purple-950/80 hover:bg-purple-900 text-purple-300 border border-purple-700/80 text-xs font-mono uppercase py-2 px-3.5 rounded-lg font-bold shadow-xs transition-all cursor-pointer"
+            title="Merge multiple small work orders for identical parts into a consolidated run"
+          >
+            <Merge className="h-4 w-4 text-purple-400" />
+            <span>Merge Orders</span>
+          </button>
+
+          <button
             id="new-work-order-btn"
             onClick={() => setIsSoPickerOpen(true)}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono uppercase py-2.5 px-4 rounded-lg font-bold shadow-sm transition-all focus:ring-2 focus:ring-indigo-500 cursor-pointer"
@@ -396,7 +434,7 @@ export const ProductionPage: React.FC = () => {
 
           {/* Status tabs */}
           <div className="flex flex-nowrap overflow-x-auto gap-1.5 pb-1 md:pb-0 scrollbar-none">
-            {(['all', 'pending', 'ready', 'in_progress', 'paused', 'completed'] as const).map((tab) => {
+            {(['all', 'pending', 'ready', 'in_progress', 'paused', 'completed', 'split', 'merged'] as const).map((tab) => {
               const active = statusFilter === tab;
               const count =
                 tab === 'all'
@@ -530,13 +568,37 @@ export const ProductionPage: React.FC = () => {
                       `}
                     >
                       <td className="py-4 px-4 font-mono font-bold text-slate-900 tracking-tight">
-                        <div className="flex items-center gap-2">
-                          {wo.orderNumber}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span>{wo.orderNumber}</span>
                           <span
                             className={`px-1.5 py-0.5 rounded text-[9px] font-mono uppercase font-bold border ${priority.className}`}
                           >
                             {priority.label}
                           </span>
+                          {wo.isChild && (
+                            <span 
+                              className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-teal-50 text-teal-700 border border-teal-200"
+                              title={`Child of ${wo.parentOrderNumber}`}
+                            >
+                              Child
+                            </span>
+                          )}
+                          {wo.isSplitParent && (
+                            <span 
+                              className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200"
+                              title={`Split into ${(wo.childOrderNumbers || []).join(', ')}`}
+                            >
+                              Parent ({wo.childOrderNumbers?.length || 0})
+                            </span>
+                          )}
+                          {wo.isMerged && (
+                            <span 
+                              className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200"
+                              title={`Merged from ${(wo.mergedFromOrderNumbers || []).join(', ')}`}
+                            >
+                              Merged
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="py-4 px-4">
@@ -595,8 +657,8 @@ export const ProductionPage: React.FC = () => {
                         className="py-4 px-4 text-center"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="flex justify-center gap-1.5">
-                          {nextOp && wo.status !== 'completed' && (
+                        <div className="flex justify-center items-center gap-1.5">
+                          {nextOp && wo.status !== 'completed' && wo.status !== 'cancelled' && wo.status !== 'split' && wo.status !== 'merged' && (
                             <button
                               onClick={() => handleStartOperation(wo, nextOp)}
                               disabled={actionSubmitting}
@@ -606,6 +668,23 @@ export const ProductionPage: React.FC = () => {
                               ▶ Start
                             </button>
                           )}
+                          {wo.status !== 'completed' && wo.status !== 'cancelled' && !wo.isSplitParent && wo.status !== 'merged' && (
+                            <button
+                              onClick={() => setSplitModalWo(wo)}
+                              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10px] font-mono uppercase font-bold px-2 py-1 rounded cursor-pointer transition-colors flex items-center gap-1"
+                              title="Split this work order into child batches"
+                            >
+                              <Split className="w-2.5 h-2.5" />
+                              Split
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setGenealogyWoId(wo.id)}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-[10px] font-mono uppercase font-bold px-1.5 py-1 rounded cursor-pointer transition-colors"
+                            title="View Genealogy Lineage & Family Tree"
+                          >
+                            <GitBranch className="w-3 h-3" />
+                          </button>
                           <button
                             onClick={() => setActiveWoId(wo.id)}
                             className="bg-sky-50 hover:bg-sky-100 text-sky-600 text-[10px] font-mono uppercase font-bold px-2 py-1 rounded cursor-pointer transition-colors"
@@ -663,6 +742,26 @@ export const ProductionPage: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
+                {activeWo.status !== 'completed' && activeWo.status !== 'cancelled' && !activeWo.isSplitParent && activeWo.status !== 'merged' && (
+                  <button
+                    type="button"
+                    onClick={() => setSplitModalWo(activeWo)}
+                    className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-mono font-bold px-3 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-pointer transition-colors"
+                    title="Split into child work orders across machines or shifts"
+                  >
+                    <Split className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Split Order</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setGenealogyWoId(activeWo.id)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-mono font-bold px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-pointer transition-colors"
+                  title="View Genealogy Lineage & Family Tree"
+                >
+                  <GitBranch className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Genealogy</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setTravelerWo(activeWo)}
@@ -693,6 +792,47 @@ export const ProductionPage: React.FC = () => {
                   }`}
                 >
                   {actionMsg.text}
+                </div>
+              )}
+
+              {/* Genealogy / Lineage Card if Child, Split Parent, or Merged */}
+              {(activeWo.isChild || activeWo.isSplitParent || activeWo.isMerged) && (
+                <div className={`p-4 rounded-xl border flex items-center justify-between text-xs ${
+                  activeWo.isChild
+                    ? 'bg-teal-50 border-teal-200 text-teal-900'
+                    : activeWo.isSplitParent
+                    ? 'bg-indigo-50 border-indigo-200 text-indigo-900'
+                    : 'bg-purple-50 border-purple-200 text-purple-900'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      activeWo.isChild ? 'bg-teal-200/60 text-teal-800' : activeWo.isSplitParent ? 'bg-indigo-200/60 text-indigo-800' : 'bg-purple-200/60 text-purple-800'
+                    }`}>
+                      {activeWo.isChild ? <Split className="w-4 h-4" /> : activeWo.isSplitParent ? <Split className="w-4 h-4" /> : <Merge className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <span className="font-bold block">
+                        {activeWo.isChild
+                          ? `Child Batch of Parent ${activeWo.parentOrderNumber || 'WO'}`
+                          : activeWo.isSplitParent
+                          ? `Split Parent Order (Divided into ${(activeWo.childOrderNumbers || []).length} child batches)`
+                          : `Merged Consolidated Order (Combined from ${(activeWo.mergedFromOrderNumbers || []).length} source orders)`}
+                      </span>
+                      <span className="text-[11px] opacity-80">
+                        {activeWo.isChild && activeWo.splitRatio
+                          ? `Split fraction: ${(activeWo.splitRatio * 100).toFixed(0)}% (${activeWo.quantity} of ${activeWo.splitFromQuantity} pcs) • ${activeWo.splitReason || 'Operational split'}`
+                          : activeWo.splitReason || activeWo.mergedReason || 'Optimized production run'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setGenealogyWoId(activeWo.id)}
+                    className="px-2.5 py-1 rounded bg-white border border-current text-[11px] font-bold shadow-3xs hover:bg-slate-50 transition cursor-pointer shrink-0"
+                  >
+                    View Family Tree
+                  </button>
                 </div>
               )}
 
@@ -1132,6 +1272,54 @@ export const ProductionPage: React.FC = () => {
           onClose={() => setTravelerWo(null)}
           workOrder={travelerWo}
           companyName={tenant?.companyName}
+        />
+      )}
+
+      {/* ── Work Order Splitting Modal ─────────────────────────── */}
+      {splitModalWo && (
+        <WorkOrderSplitModal
+          isOpen={!!splitModalWo}
+          onClose={() => setSplitModalWo(null)}
+          workOrder={splitModalWo}
+          onSplit={async (params) => {
+            await splitWorkOrder(params);
+            setSplitModalWo(null);
+            if (activeWoId === params.parentWorkOrderId) {
+              setActiveWoId(null);
+            }
+          }}
+        />
+      )}
+
+      {/* ── Work Order Merging Modal ───────────────────────────── */}
+      {isMergeModalOpen && (
+        <WorkOrderMergeModal
+          isOpen={isMergeModalOpen}
+          onClose={() => {
+            setIsMergeModalOpen(false);
+            setSelectedForMerge([]);
+          }}
+          initialSelectedOrders={selectedForMerge}
+          allAvailableOrders={workOrders}
+          onMerge={async (params) => {
+            await mergeWorkOrders(params);
+            setIsMergeModalOpen(false);
+            setSelectedForMerge([]);
+          }}
+        />
+      )}
+
+      {/* ── Work Order Genealogy & Lineage Modal ───────────────── */}
+      {genealogyWoId && (
+        <WorkOrderGenealogyModal
+          isOpen={!!genealogyWoId}
+          onClose={() => setGenealogyWoId(null)}
+          workOrderId={genealogyWoId}
+          allWorkOrders={workOrders}
+          onSelectWorkOrder={(id) => {
+            setActiveWoId(id);
+            setGenealogyWoId(null);
+          }}
         />
       )}
     </div>

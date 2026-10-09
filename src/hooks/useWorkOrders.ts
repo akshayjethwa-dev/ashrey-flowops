@@ -16,8 +16,11 @@ import {
   WorkOrderStatus,
   WorkOrderOperation,
   WorkOrderPriority,
-  ExplodedBomItem
+  ExplodedBomItem,
+  SplitExecutionParams,
+  MergeExecutionParams
 } from '../types/workOrder';
+import { workOrderSplitMergeService } from '../services/workOrderSplitMergeService';
 
 export * from '../types/workOrder';
 
@@ -442,6 +445,40 @@ export function useWorkOrders(
     [tenantId]
   );
 
+  // ── Split a Work Order into Child Work Orders ───────────────
+  const splitWorkOrder = useCallback(
+    async (params: SplitExecutionParams) => {
+      if (!tenantId) throw new Error('Tenant ID is required to split work order');
+      const isSandbox =
+        localStorage.getItem('isSandboxMode') === 'true' || !db;
+
+      const result = await workOrderSplitMergeService.executeSplit(params, tenantId, isSandbox);
+      return result;
+    },
+    [tenantId]
+  );
+
+  // ── Merge Multiple Work Orders into a Consolidated Run ──────
+  const mergeWorkOrders = useCallback(
+    async (params: MergeExecutionParams) => {
+      if (!tenantId) throw new Error('Tenant ID is required to merge work orders');
+      const isSandbox =
+        localStorage.getItem('isSandboxMode') === 'true' || !db;
+
+      const result = await workOrderSplitMergeService.executeMerge(params, tenantId, isSandbox);
+      return result;
+    },
+    [tenantId]
+  );
+
+  // ── Get Full Family Tree / Genealogy for a Work Order ────────
+  const getGenealogy = useCallback(
+    (woId: string) => {
+      return workOrderSplitMergeService.getWorkOrderGenealogy(woId, workOrders);
+    },
+    [workOrders]
+  );
+
   return {
     workOrders,
     filteredWorkOrders: filtered,
@@ -449,5 +486,8 @@ export function useWorkOrders(
     error,
     updateOperation,
     updateWorkOrder,
+    splitWorkOrder,
+    mergeWorkOrders,
+    getGenealogy,
   };
 }

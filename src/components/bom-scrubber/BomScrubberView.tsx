@@ -26,7 +26,8 @@ import {
   ShieldAlert,
   ChevronDown,
   Edit2,
-  Check
+  Check,
+  FolderTree
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useStockItems } from '../../hooks/useStockInventory';
@@ -242,6 +243,15 @@ export const BomScrubberView: React.FC<BomScrubberViewProps> = ({
 
           {/* Quick Actions */}
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => navigate('/boms')}
+              className="px-3 py-2 bg-indigo-950/60 hover:bg-indigo-900/60 text-indigo-200 text-xs font-mono font-bold rounded-lg border border-indigo-500/40 flex items-center space-x-1.5 transition-colors cursor-pointer"
+              title="Open Multi-Level Product Structures & Revision Control"
+            >
+              <FolderTree className="h-4 w-4 text-indigo-400" />
+              <span>Multi-Level BOMs</span>
+            </button>
+
             <button
               onClick={() => setCatalogModalOpen(true)}
               className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-bold rounded-lg border border-slate-700 flex items-center space-x-1.5 transition-colors cursor-pointer"

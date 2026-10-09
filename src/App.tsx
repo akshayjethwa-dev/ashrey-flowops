@@ -37,6 +37,10 @@ import { InventoryPage } from './pages/InventoryPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { PublicRfqWebFormPage } from './pages/public/PublicRfqWebFormPage';
 import { SubcontractorsPage } from './pages/subcontractors/SubcontractorsPage';
+import { MultiLevelBomPage } from './pages/engineering/MultiLevelBomPage';
+import { RoutingsPage } from './pages/engineering/RoutingsPage';
+import { FiniteSchedulingPage } from './pages/planning/FiniteSchedulingPage';
+import { GanttPlannerPage } from './pages/planning/GanttPlannerPage';
 
 // Settings sub-views
 import { TenantSettingsPage } from './pages/settings/TenantSettingsPage';
@@ -123,6 +127,78 @@ export default function App() {
                   element={
                     <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
                       <BomScrubberPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="boms" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
+                      <MultiLevelBomPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="engineering/boms" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
+                      <MultiLevelBomPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="routings" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
+                      <RoutingsPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="engineering/routings" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
+                      <RoutingsPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="scheduling" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
+                      <FiniteSchedulingPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="planning/scheduling" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
+                      <FiniteSchedulingPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="gantt-planner" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
+                      <GanttPlannerPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="planning/gantt" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
+                      <GanttPlannerPage />
                     </ProtectedRoute>
                   } 
                 />

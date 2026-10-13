@@ -5,7 +5,18 @@ import { db } from '../firebase';
 import { ScanResult } from '../services/scannerService';
 import { syncEngine } from '../services/syncEngine';
 
-export type EntityType = 'material' | 'workOrder' | 'machine' | 'location' | 'batch' | 'unknown';
+export type EntityType = 
+  | 'material' 
+  | 'workOrder' 
+  | 'purchaseOrder' 
+  | 'machine' 
+  | 'location' 
+  | 'batch' 
+  | 'operator' 
+  | 'operation' 
+  | 'workOrderOperation' 
+  | 'command' 
+  | 'unknown';
 
 export interface ResolvedEntity {
   type: EntityType;
@@ -116,6 +127,12 @@ async function lookupRemote(
       return (
         (await findOne(`tenants/${tenantId}/workOrders`, 'orderNumber')) ||
         (await findOne(`tenants/${tenantId}/orders`, 'orderNumber'))
+      );
+
+    case 'purchaseOrder':
+      return (
+        (await findOne(`tenants/${tenantId}/purchaseOrders`, 'poNumber')) ||
+        (await findOne(`tenants/${tenantId}/inboundOrders`, 'poNumber'))
       );
 
     case 'machine':

@@ -33,8 +33,27 @@ import {
   FolderTree,
   GitCommit,
   CalendarClock,
-  LayoutGrid
+  LayoutGrid,
+  Cpu,
+  FileCheck,
+  Award,
+  QrCode,
+  Calculator,
+  Tablet,
+  Clock,
+  Gauge,
+  GitBranch,
+  FileCheck2,
+  ShieldCheck,
+  Rotate3d,
+  CheckCircle2,
+  AlertOctagon
 } from 'lucide-react';
+import { usePurchaseOrders } from '../../hooks/usePurchaseOrders';
+import { useTraceability } from '../../hooks/useTraceability';
+import { useStockAgingValuation } from '../../hooks/useStockAgingValuation';
+import { useTimeCapture } from '../../hooks/useTimeCapture';
+import { useOee } from '../../hooks/useOee';
 import { UserRole } from '../../types';
 import { getRoleTitle, getRoleBadgeColor } from '../../utils/permissions';
 
@@ -60,6 +79,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
   const { items: allStockItems } = useStockItems(tenant?.id);
   const lowStockCount = allStockItems.filter(item => item.currentQty <= item.reorderLevel).length;
 
+  const { kpis: poKpis } = usePurchaseOrders();
+  const pendingPoCount = poKpis.pendingApprovalCount;
+
+  const { kpis: traceKpis } = useTraceability();
+  const activeRecallCount = traceKpis.activeRecallsCount;
+
+  const { summary: agingSummary } = useStockAgingValuation();
+  const agingAlertsCount = (agingSummary?.criticalExpiryItemsCount || 0) + (agingSummary?.slowMovingItemsCount ? 1 : 0);
+
+  const { activeClockings } = useTimeCapture();
+  const activeRunningClockCount = activeClockings.length;
+
   const navigationItems: SidebarItem[] = [
     { to: '/dashboard', label: 'Dashboard', icon: TrendingUp, roles: ['admin', 'manager', 'management', 'viewer'] },
     { to: '/whatsapp-inbox', label: 'WhatsApp Inbox', icon: MessageSquare, roles: ['admin', 'manager', 'sales', 'management'] },
@@ -74,7 +105,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
     { to: '/subcontractors', label: 'Subcontractor RFQs', icon: Building2, roles: ['admin', 'manager', 'sales', 'production', 'management', 'store_keeper', 'viewer'] },
     { to: '/orders', label: 'Production Line', icon: Layers, roles: ['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'viewer'] },
     { to: '/work-orders', label: 'Work Orders', icon: Zap, roles: ['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer'] },
+    { to: '/work-instructions', label: 'Work Instructions', icon: Tablet, roles: ['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer'] },
+    { to: '/time-capture', label: 'Time Capture', icon: Clock, roles: ['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer'] },
+    { to: '/oee', label: 'Machine OEE', icon: Gauge, roles: ['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer'] },
+    { to: '/production-genealogy', label: 'Production Genealogy', icon: GitBranch, roles: ['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer'] },
+    { to: '/shift-handover', label: 'Shift Handover', icon: UserCheck, roles: ['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer'] },
+    { to: '/mrp', label: 'Automated MRP Engine', icon: Cpu, roles: ['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer'] },
+    { to: '/purchase-orders', label: 'Purchase Orders', icon: FileCheck, roles: ['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer'] },
+    { to: '/suppliers', label: 'Supplier Scorecards', icon: Award, roles: ['admin', 'manager', 'sales', 'management', 'store_keeper', 'production', 'viewer'] },
     { to: '/inventory', label: 'Inventory', icon: Package, roles: ['admin', 'manager', 'store_keeper', 'operator', 'quality_inspector', 'production', 'management', 'sales', 'dispatch', 'viewer'] },
+    { to: '/traceability', label: 'Lot Traceability', icon: QrCode, roles: ['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer'] },
+    { to: '/edhr', label: 'Electronic Batch (eDHR)', icon: FileCheck2, roles: ['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer'] },
+    { to: '/iqc', label: 'Incoming Quality (IQC)', icon: ShieldCheck, roles: ['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer'] },
+    { to: '/ipqc', label: 'In-Process (IPQC)', icon: Rotate3d, roles: ['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer'] },
+    { to: '/spc', label: 'SPC & Control Charts', icon: TrendingUp, roles: ['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer'] },
+    { to: '/gages', label: 'Gage Calibration', icon: Award, roles: ['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer'] },
+    { to: '/fqc', label: 'Final Quality (FQC)', icon: CheckCircle2, roles: ['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'dispatch', 'viewer'] },
+    { to: '/ncr', label: 'NCR & CAPA', icon: ShieldAlert, roles: ['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'dispatch', 'viewer'] },
+    { to: '/quality-holds', label: 'Quality Holds', icon: AlertOctagon, roles: ['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'dispatch', 'viewer'] },
+    { to: '/aging-valuation', label: 'Stock Aging & Valuation', icon: Calculator, roles: ['admin', 'manager', 'management', 'sales', 'store_keeper', 'production', 'viewer'] },
     { to: '/dispatch', label: 'Logistics Desk', icon: Truck, roles: ['admin', 'manager', 'dispatch', 'store_keeper', 'management', 'viewer'] },
     { to: '/customers', label: 'Customers', icon: Users, roles: ['admin', 'manager', 'sales', 'management', 'viewer'] },
     { to: '/payments', label: 'Outstanding & Payments', icon: Receipt, roles: ['admin', 'manager', 'sales', 'management', 'viewer'] },
@@ -187,6 +236,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
                     {item.to === '/inventory' && lowStockCount > 0 && (
                       <span className="bg-rose-500 text-white font-bold text-[10px] h-4 min-w-4 px-1 rounded-full flex items-center justify-center font-mono animate-pulse">
                         {lowStockCount}
+                      </span>
+                    )}
+                    {item.to === '/purchase-orders' && pendingPoCount > 0 && (
+                      <span className="bg-amber-500 text-slate-950 font-bold text-[10px] h-4 min-w-4 px-1 rounded-full flex items-center justify-center font-mono">
+                        {pendingPoCount}
+                      </span>
+                    )}
+                    {item.to === '/traceability' && activeRecallCount > 0 && (
+                      <span className="bg-rose-500 text-white font-bold text-[10px] h-4 min-w-4 px-1 rounded-full flex items-center justify-center font-mono animate-pulse">
+                        {activeRecallCount}
+                      </span>
+                    )}
+                    {item.to === '/aging-valuation' && agingAlertsCount > 0 && (
+                      <span className="bg-amber-500 text-slate-950 font-bold text-[10px] h-4 min-w-4 px-1 rounded-full flex items-center justify-center font-mono">
+                        {agingAlertsCount}
+                      </span>
+                    )}
+                    {item.to === '/time-capture' && activeRunningClockCount > 0 && (
+                      <span className="bg-emerald-500 text-white font-bold text-[10px] h-4 min-w-4 px-1 rounded-full flex items-center justify-center font-mono animate-pulse">
+                        {activeRunningClockCount}
                       </span>
                     )}
                   </NavLink>

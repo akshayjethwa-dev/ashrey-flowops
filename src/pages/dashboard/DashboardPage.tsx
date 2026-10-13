@@ -7,9 +7,11 @@ import { useDashboardData } from '../../hooks/useDashboardData';
 import { useTenantConfig } from '../../hooks/useTenantConfig';
 import { useStockItems } from '../../hooks/useStockInventory';
 import { DashboardKpiCard } from '../../components/DashboardKpiCard';
+import { useOee } from '../../hooks/useOee';
 import { 
   Archive, 
   FileText, 
+  Gauge,
   Clock, 
   Truck, 
   AlertTriangle, 
@@ -30,6 +32,7 @@ export const DashboardPage: React.FC = () => {
 
   const { tenantConfig } = useTenantConfig(tenant?.id);
   const { summary, loading, error, refetch } = useDashboardData(tenant?.id, isSandboxMode);
+  const { summary: oeeSummary } = useOee();
 
   // Fallback for stock items
   const { items: allStockItems } = useStockItems(tenant?.id);
@@ -231,6 +234,15 @@ export const DashboardPage: React.FC = () => {
       icon: Package,
       colorScheme: 'rose' as const,
       onClick: () => handleKpiNavigate('/inventory')
+    },
+    {
+      id: 'plant-oee',
+      title: 'Real-Time Plant OEE',
+      value: `${oeeSummary.overallOeePercent.toFixed(1)}%`,
+      description: `Avail ${oeeSummary.overallAvailabilityPercent}% · Perf ${oeeSummary.overallPerformancePercent}% · Qual ${oeeSummary.overallQualityPercent}%`,
+      icon: Gauge,
+      colorScheme: 'sky' as const,
+      onClick: () => handleKpiNavigate('/oee')
     }
   ];
 

@@ -17,11 +17,20 @@ import {
   FileText,
   DollarSign,
   Briefcase,
-  Printer
+  Printer,
+  ShieldCheck,
+  ShieldAlert,
+  Award,
+  ArrowUpRight,
+  Clock,
+  AlertOctagon
 } from 'lucide-react';
 import { FileUploader } from '../../components/FileUploader';
 import { AttachmentsList } from '../../components/AttachmentsList';
 import { FileSymlink } from 'lucide-react';
+import { fqcService } from '../../services/fqcService';
+import { CertificateOfConformanceModal } from '../../components/fqc/CertificateOfConformanceModal';
+import { qualityHoldService } from '../../services/qualityHoldService';
 
 
 export const DispatchDetailPage: React.FC = () => {
@@ -32,8 +41,16 @@ export const DispatchDetailPage: React.FC = () => {
 
   const [updating, setUpdating] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [showCocModal, setShowCocModal] = useState(false);
+
+  const releaseCheck = dispatchItem?.orderId ? fqcService.checkDispatchReleaseEligibility(dispatchItem.orderId) : null;
+  const holdCheck = dispatchItem?.orderId ? qualityHoldService.checkDispatchBlock(dispatchItem.orderId) : null;
 
   const handleUpdateStatus = async (newStatus: 'Planned' | 'Dispatched' | 'Delivered' | 'Cancelled' | 'shipped' | 'delivered') => {
+    if ((newStatus === 'Dispatched' || newStatus === 'shipped' || newStatus === 'Delivered') && holdCheck?.isBlocked) {
+      setFeedback(`Blocked: Quality Hold active on batch/WO. ${holdCheck.blockReason}`);
+      return;
+    }
     setUpdating(true);
     setFeedback(null);
     try {
@@ -218,6 +235,100 @@ export const DispatchDetailPage: React.FC = () => {
         {/* RIGHT COLUMN: Action triggers, transporter details (1/3 width) */}
         <div className="space-y-6">
 
+          {/* Card: Final Quality Control & Dispatch Release Gate */}
+          <div className="bg-white border rounded-xl p-5 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs uppercase font-mono font-bold text-slate-400 tracking-wider flex items-center space-x-1.5">
+                <Award className="h-4 w-4 text-emerald-600" />
+                <span>Final Quality & Release Gate</span>
+              </h4>
+              <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                ISO 9001:2015
+              </span>
+            </div>
+
+            {holdCheck?.isBlocked ? (
+              <div className="p-3 bg-rose-50 border-2 border-rose-400 rounded-lg space-y-2">
+                <div className="flex items-center space-x-2 text-rose-900 font-bold">
+                  <AlertOctagon className="h-4 w-4 text-rose-600 shrink-0 animate-pulse" />
+                  <span className="text-xs font-mono uppercase tracking-wide">QUALITY HOLD: DISPATCH LOCKED</span>
+                </div>
+                <p className="text-[11px] text-rose-800 leading-tight">
+                  {holdCheck.blockReason}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/quality-holds')}
+                  className="w-full py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold font-mono uppercase tracking-wider transition flex items-center justify-center space-x-1 cursor-pointer shadow-sm"
+                >
+                  <span>Review in Quality Holds Desk</span>
+                  <ArrowUpRight className="h-3 w-3" />
+                </button>
+              </div>
+            ) : releaseCheck?.isEligible && releaseCheck.status === 'released' ? (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg space-y-2">
+                <div className="flex items-center space-x-2 text-emerald-800">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span className="text-xs font-bold font-mono">CLEARED FOR DISPATCH</span>
+                </div>
+                <div className="text-[11px] text-emerald-900 space-y-0.5 font-sans">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">CoC Number:</span>
+                    <span className="font-mono font-bold text-emerald-800">{releaseCheck.cocNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Authorized by:</span>
+                    <span className="font-semibold">{releaseCheck.signedBy}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCocModal(true)}
+                  className="w-full mt-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold font-mono uppercase tracking-wider transition flex items-center justify-center space-x-1 cursor-pointer"
+                >
+                  <FileCheck className="h-3.5 w-3.5" />
+                  <span>View Certificate of Conformance (CoC)</span>
+                </button>
+              </div>
+            ) : releaseCheck?.status === 'quarantined' ? (
+              <div className="p-3 bg-rose-50 border border-rose-300 rounded-lg space-y-2">
+                <div className="flex items-center space-x-2 text-rose-800">
+                  <ShieldAlert className="h-4 w-4 text-rose-600 shrink-0 animate-pulse" />
+                  <span className="text-xs font-bold font-mono">QUARANTINED (BLOCKED)</span>
+                </div>
+                <p className="text-[11px] text-rose-900 leading-tight">
+                  {releaseCheck?.holdReason || 'Order is quarantined under Non-Conformance Report.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/fqc')}
+                  className="w-full py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold font-mono uppercase tracking-wider transition flex items-center justify-center space-x-1 cursor-pointer"
+                >
+                  <span>Review in FQC Desk</span>
+                  <ArrowUpRight className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg space-y-2">
+                <div className="flex items-center space-x-2 text-amber-800">
+                  <Clock className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span className="text-xs font-bold font-mono">AUTO-HOLD: FQC PENDING</span>
+                </div>
+                <p className="text-[11px] text-amber-900 leading-tight">
+                  Final Quality Control inspection has not cleared this consignment. Product cannot be dispatched without QA Manager sign-off.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/fqc')}
+                  className="w-full py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold font-mono uppercase tracking-wider transition flex items-center justify-center space-x-1 cursor-pointer"
+                >
+                  <span>Launch FQC Inspection</span>
+                  <ArrowUpRight className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Carrier update panel */}
           <div className="bg-white border rounded-xl p-5 shadow-2xs space-y-4">
             <h4 className="text-xs uppercase font-mono font-bold text-slate-400 tracking-wider">
@@ -349,6 +460,15 @@ export const DispatchDetailPage: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Certificate of Conformance Modal */}
+      {showCocModal && releaseCheck?.fqcOrder && (
+        <CertificateOfConformanceModal
+          order={releaseCheck.fqcOrder}
+          isOpen={showCocModal}
+          onClose={() => setShowCocModal(false)}
+        />
+      )}
 
     </div>
   );

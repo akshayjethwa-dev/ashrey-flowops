@@ -888,3 +888,6 @@ export type {
 export * from './types/subcontractor';
 export * from './types/workOrder';
 export * from './types/inventoryLocation';
+export * from './types/barcodeMovement';
+export * from './types/mrp';
+export * from './types/purchaseOrder';

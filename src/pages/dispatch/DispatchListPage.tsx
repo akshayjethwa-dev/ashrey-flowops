@@ -15,9 +15,13 @@ import {
   AlertCircle,
   Calendar,
   ClipboardList,
-  Truck
+  Truck,
+  ShieldCheck,
+  AlertOctagon
 } from 'lucide-react';
 import { Order } from '../../types';
+import { DispatchReleaseGateBadge } from '../../components/fqc/DispatchReleaseGateBadge';
+import { qualityHoldService } from '../../services/qualityHoldService';
 
 export const DispatchListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -48,12 +52,8 @@ export const DispatchListPage: React.FC = () => {
     loadingMore,
     hasMore,
     error,
-<<<<<<< HEAD
-    loadMore
-=======
     loadMore,
     reset
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
   } = usePaginatedCollectionQuery<any>(
     tenant?.id ? `tenants/${tenant.id}/dispatches` : 'dispatches',
     {
@@ -154,6 +154,22 @@ export const DispatchListPage: React.FC = () => {
             label="Export CSV"
           />
           <button
+            onClick={() => navigate('/fqc')}
+            className="bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-mono text-[10px] uppercase font-bold tracking-wider px-3 py-2.5 rounded-lg flex items-center space-x-1.5 transition-colors cursor-pointer"
+            title="Inspect final quality checklist and release certificates"
+          >
+            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+            <span>FQC Desk</span>
+          </button>
+          <button
+            onClick={() => navigate('/quality-holds')}
+            className="bg-slate-900 hover:bg-slate-800 text-rose-300 border border-rose-900/60 font-mono text-[10px] uppercase font-bold tracking-wider px-3 py-2.5 rounded-lg flex items-center space-x-1.5 transition-colors cursor-pointer"
+            title="Manage batch/WO quality holds and release gates"
+          >
+            <AlertOctagon className="h-4 w-4 text-rose-400" />
+            <span>Quality Holds</span>
+          </button>
+          <button
             onClick={handleOpenCreateNew}
             className="bg-indigo-650 hover:bg-indigo-700 text-white font-mono text-[10px] uppercase font-extrabold tracking-widest px-4 py-2.5 rounded-lg flex items-center space-x-1.5 transition-colors shadow-2xs cursor-pointer"
           >
@@ -209,6 +225,7 @@ export const DispatchListPage: React.FC = () => {
                   <th className="p-3.5 font-bold">Departure Date</th>
                   <th className="p-3.5 font-bold font-sans">Transporter / LR</th>
                   <th className="p-3.5 font-bold">Cargo Summary</th>
+                  <th className="p-3.5 font-bold font-sans">FQC Release Gate</th>
                   <th className="p-3.5 text-center font-bold">Status</th>
                   <th className="p-3.5 pr-5"></th>
                 </tr>
@@ -247,6 +264,27 @@ export const DispatchListPage: React.FC = () => {
                     {/* Cargo Summary */}
                     <td className="p-3.5 text-slate-502 font-mono text-[10px] max-w-[160px] truncate">
                       {disp.itemsSummary || 'Standard components'}
+                    </td>
+
+                    {/* Quality Release Gate & Holds Status */}
+                    <td className="p-3.5">
+                      {(() => {
+                        const holdCheck = qualityHoldService.checkDispatchBlock(disp.orderId);
+                        if (holdCheck.isBlocked) {
+                          const topHold = holdCheck.blockingHolds[0];
+                          return (
+                            <span
+                              onClick={() => navigate('/quality-holds')}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300 font-mono text-[9px] font-bold uppercase tracking-wider cursor-pointer hover:bg-rose-200 transition"
+                              title={`Quality Hold Active [${topHold.id}]: ${topHold.holdReason}`}
+                            >
+                              <AlertOctagon className="w-3 h-3 text-rose-600 animate-pulse" />
+                              <span>HOLD BLOCKED</span>
+                            </span>
+                          );
+                        }
+                        return <DispatchReleaseGateBadge orderIdOrNumber={disp.orderId} />;
+                      })()}
                     </td>
 
                     {/* Status badge */}
@@ -352,10 +390,7 @@ export const DispatchListPage: React.FC = () => {
         preselectedOrder={preselectedOrder}
         onSuccess={() => {
           setIsCreateOpen(false);
-<<<<<<< HEAD
-=======
           reset();
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
         }}
       />
 

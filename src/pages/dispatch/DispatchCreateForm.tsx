@@ -1,14 +1,15 @@
-// src/pages/dispatch/DispatchCreateForm.tsx
-
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Order, QuoteItem } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../firebase';
 import { createDispatchRecord } from '../../hooks/useDispatch';
-import { X, Truck, Landmark, User, FileText, MapPin, Calendar, HelpCircle } from 'lucide-react';
+import { X, Truck, Landmark, User, FileText, MapPin, Calendar, HelpCircle, ShieldCheck, ShieldAlert, Clock, Award, ArrowUpRight, AlertOctagon } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { FieldError } from '../../components/ui/FieldError';
 import { getFriendlyErrorMessage } from '../../utils/errors';
+import { fqcService } from '../../services/fqcService';
+import { qualityHoldService } from '../../services/qualityHoldService';
 
 interface DispatchCreateFormProps {
   isOpen: boolean;
@@ -27,10 +28,12 @@ export const DispatchCreateForm: React.FC<DispatchCreateFormProps> = ({
 }) => {
   const { tenant, profile } = useAuth();
   const { toastSuccess, toastError } = useToast();
+  const navigate = useNavigate();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   
   // States
   const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [qualityOverrideChecked, setQualityOverrideChecked] = useState(false);
   const [dispatchNumber, setDispatchNumber] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [transporter, setTransporter] = useState('VRL Logistics India');
@@ -98,8 +101,24 @@ export const DispatchCreateForm: React.FC<DispatchCreateFormProps> = ({
     if (!vehicleNumber.trim()) {
       errors.vehicleNumber = 'Logistics vehicle fleet registration plate number is required.';
     }
-    if (!destination.trim()) {
-      errors.destination = 'Consignment shipping destination address is required.';
+    // Acceptance Criteria: Quality Holds - prevent batches that fail inspection from being dispatched
+    if (selectedOrderId) {
+      const holdCheck = qualityHoldService.checkDispatchBlock(selectedOrderId);
+      if (holdCheck.isBlocked && !qualityOverrideChecked) {
+        errors.selectedOrderId = holdCheck.blockReason;
+        toastError('Dispatch Blocked by Quality Hold', 'Batch or Work Order is flagged on Quality Hold. Authorized Quality release required before shipping.');
+        setFieldErrors(errors);
+        return;
+      }
+
+      // Acceptance Criteria: Dispatch release gate & auto-hold if FQC pending
+      const releaseCheck = fqcService.checkDispatchReleaseEligibility(selectedOrderId);
+      if (!releaseCheck.isEligible && !qualityOverrideChecked) {
+        errors.selectedOrderId = releaseCheck.holdReason || 'AUTO-HOLD: Final Quality Control (FQC) inspection is pending or unapproved.';
+        toastError('Dispatch Gate Blocked', 'Order is on Quality Auto-Hold. Final inspection sign-off required before releasing to logistics.');
+        setFieldErrors(errors);
+        return;
+      }
     }
 
     if (Object.keys(errors).length > 0) {
@@ -247,7 +266,112 @@ export const DispatchCreateForm: React.FC<DispatchCreateFormProps> = ({
                 ))}
               </select>
               <FieldError message={fieldErrors.selectedOrderId} />
-              <span className="text-[9px] text-slate-400 font-mono italic">Shows accepted sales orders ready for transit.</span>
+
+              {/* Active Quality Hold Lockdown Banner */}
+              {selectedOrderId && (() => {
+                const holdCheck = qualityHoldService.checkDispatchBlock(selectedOrderId);
+                if (holdCheck.isBlocked) {
+                  const topHold = holdCheck.blockingHolds[0];
+                  return (
+                    <div className="mt-2 p-3 bg-rose-50 border-2 border-rose-400 rounded-lg text-rose-950 text-xs space-y-2 shadow-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2.5">
+                          <AlertOctagon className="w-5 h-5 text-rose-600 shrink-0 mt-0.5 animate-pulse" />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <strong className="block text-[11px] font-extrabold text-rose-900 uppercase tracking-wide">
+                                DISPATCH HARD-LOCKED: QUALITY HOLD ACTIVE [{topHold.id}]
+                              </strong>
+                              <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-rose-200 text-rose-800 font-bold uppercase">
+                                {topHold.severity}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-rose-800 font-medium leading-tight mt-1">
+                              Target {topHold.targetNumber} ({topHold.partName}): {topHold.holdReason}
+                            </p>
+                            <p className="text-[10px] text-rose-700 font-mono mt-0.5">
+                              Containment: {topHold.location} · Flagged by {topHold.placedBy}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => navigate('/quality-holds')}
+                          className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold font-mono shrink-0 flex items-center gap-1 transition shadow-sm"
+                        >
+                          Review Hold <ArrowUpRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* FQC Dispatch Release Gate Status Banner */}
+              {selectedOrderId && (() => {
+                const check = fqcService.checkDispatchReleaseEligibility(selectedOrderId);
+                if (check.isEligible && check.status === 'released') {
+                  return (
+                    <div className="mt-2 p-2.5 bg-emerald-50 border border-emerald-300 rounded-lg text-emerald-800 text-xs flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div>
+                          <strong className="block text-[11px] font-bold">FQC Release Gate: CLEARED FOR DISPATCH</strong>
+                          <span className="text-[10px] text-emerald-700 block">
+                            CoC #{check.cocNumber} endorsed by {check.signedBy}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/fqc')}
+                        className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 underline flex items-center gap-0.5"
+                      >
+                        View CoC <ArrowUpRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="mt-2 p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2">
+                        <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="block text-[11px] font-bold text-amber-950">
+                            QUALITY DISPATCH GATE ENFORCED: AUTO-HOLD ACTIVE
+                          </strong>
+                          <p className="text-[10px] text-amber-800 leading-tight mt-0.5">
+                            {check.holdReason || check.message}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/fqc')}
+                        className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold shrink-0 flex items-center gap-1 transition"
+                      >
+                        FQC Desk <ArrowUpRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <div className="pt-1.5 border-t border-amber-200/80 flex items-center justify-between">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-semibold text-amber-900">
+                        <input
+                          type="checkbox"
+                          checked={qualityOverrideChecked}
+                          onChange={e => setQualityOverrideChecked(e.target.checked)}
+                          className="w-3.5 h-3.5 text-amber-600 rounded"
+                        />
+                        <span>QA Manager Emergency Concession Override</span>
+                      </label>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <span className="text-[9px] text-slate-400 font-mono italic block mt-1">Shows accepted sales orders ready for transit.</span>
             </div>
 
             {/* Dispatch number & Invoice Number */}

@@ -1,6 +1,7 @@
 // src/pages/InventoryPage.tsx
 
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -35,6 +36,9 @@ import {
   Unlock,
   SlidersHorizontal,
   LayoutGrid,
+  Cpu,
+  QrCode,
+  Calculator,
 } from 'lucide-react';
 import { useMultiLocationInventory } from '../hooks/useMultiLocationInventory';
 import { MultiLocationStockMatrix } from '../components/inventory/MultiLocationStockMatrix';
@@ -44,6 +48,11 @@ import { StockReservationModal } from '../components/inventory/StockReservationM
 import { StockAdjustModal } from '../components/inventory/StockAdjustModal';
 import { LocationCreateModal } from '../components/inventory/LocationCreateModal';
 import { StockTransferHistoryDrawer } from '../components/inventory/StockTransferHistoryDrawer';
+import { BarcodeMovementTerminalModal } from '../components/inventory/BarcodeMovementTerminalModal';
+import { BarcodeMovementHub } from '../components/inventory/BarcodeMovementHub';
+import { BarcodeLabelPrintModal } from '../components/inventory/BarcodeLabelPrintModal';
+import { useBarcodeMovement } from '../hooks/useBarcodeMovement';
+import { BarcodeMovementType } from '../types/barcodeMovement';
 import {
   BinStockRecord,
   StockReservation,
@@ -94,8 +103,9 @@ export const InventoryPage: React.FC = () => {
 
   // ── Multi-Location Real-Time Inventory ────────────────────
   const mlInventory = useMultiLocationInventory(selectedPlantId);
+  const barcodeMovement = useBarcodeMovement();
   const [viewMode, setViewMode] = useState<
-    'matrix' | 'hierarchy' | 'register' | 'transfers'
+    'matrix' | 'hierarchy' | 'register' | 'transfers' | 'movements'
   >('matrix');
 
   // Multi-location modal states
@@ -113,6 +123,11 @@ export const InventoryPage: React.FC = () => {
   const [locationCreateStoreId, setLocationCreateStoreId] = useState<string | undefined>(undefined);
 
   const [transferHistoryOpen, setTransferHistoryOpen] = useState(false);
+
+  // Barcode Material Movement modal states
+  const [barcodeTerminalOpen, setBarcodeTerminalOpen] = useState(false);
+  const [barcodeTerminalInitialType, setBarcodeTerminalInitialType] = useState<BarcodeMovementType>('receive');
+  const [barcodePrintModalOpen, setBarcodePrintModalOpen] = useState(false);
 
   // ── Detail side drawer ────────────────────────────────────
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
@@ -523,6 +538,53 @@ export const InventoryPage: React.FC = () => {
             Add Location
           </button>
 
+          {/* Barcode Movement Terminal Quick Button */}
+          <button
+            onClick={() => {
+              setBarcodeTerminalInitialType('receive');
+              setBarcodeTerminalOpen(true);
+            }}
+            id="barcode-movement-terminal-btn"
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono uppercase py-2.5 px-3.5 rounded-lg font-bold shadow-sm transition-all cursor-pointer"
+            title="Open Barcode Material Movement Terminal (Receive against PO, Issue against WO, Return to Stock)"
+          >
+            <ScanLine className="h-4 w-4" />
+            Barcode Terminal
+          </button>
+
+          {/* Automated MRP Engine shortcut */}
+          <Link
+            to="/mrp"
+            id="mrp-engine-nav-btn"
+            className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs font-mono uppercase py-2.5 px-3 rounded-lg font-bold shadow-2xs transition-all"
+            title="Open Automated MRP Engine & Purchase Recommendations"
+          >
+            <Cpu className="h-4 w-4" />
+            MRP Engine
+          </Link>
+
+          {/* Lot / Batch Traceability shortcut */}
+          <Link
+            to="/traceability"
+            id="lot-traceability-nav-btn"
+            className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-800 text-xs font-mono uppercase py-2.5 px-3 rounded-lg font-bold shadow-2xs transition-all"
+            title="Open Lot/Batch Traceability, Heat Tracking, and Recall Management"
+          >
+            <QrCode className="h-4 w-4 text-amber-600" />
+            Lot Traceability
+          </Link>
+
+          {/* Stock Aging & Valuation shortcut */}
+          <Link
+            to="/aging-valuation"
+            id="stock-aging-valuation-nav-btn"
+            className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 text-xs font-mono uppercase py-2.5 px-3 rounded-lg font-bold shadow-2xs transition-all"
+            title="Open Real-Time Stock Aging & Valuation (FIFO / Weighted Average)"
+          >
+            <Calculator className="h-4 w-4 text-emerald-600" />
+            Aging & Valuation
+          </Link>
+
           {/* Scan Mode Selector + Scan Button */}
           <div className="flex items-stretch rounded-lg overflow-hidden border border-slate-300 shadow-sm">
             <select
@@ -537,8 +599,13 @@ export const InventoryPage: React.FC = () => {
             </select>
             <button
               onClick={() => {
-                setScanError(null);
-                setScannerOpen(true);
+                if (scanMode === 'receive' || scanMode === 'issue') {
+                  setBarcodeTerminalInitialType(scanMode);
+                  setBarcodeTerminalOpen(true);
+                } else {
+                  setScanError(null);
+                  setScannerOpen(true);
+                }
               }}
               id="scan-material-btn"
               className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-mono uppercase py-2.5 px-4 font-bold transition-colors cursor-pointer"
@@ -729,6 +796,26 @@ export const InventoryPage: React.FC = () => {
               }`}
             >
               {mlInventory.transfers.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('movements')}
+            id="tab-barcode-movements"
+            className={`px-3.5 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              viewMode === 'movements'
+                ? 'bg-slate-900 text-white shadow-md shadow-slate-900/10'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <ScanLine className="h-4 w-4 text-purple-400" />
+            Barcode Movement Hub
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] ${
+                viewMode === 'movements' ? 'bg-purple-500 text-white' : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {barcodeMovement.logs.length}
             </span>
           </button>
         </div>
@@ -1029,6 +1116,22 @@ export const InventoryPage: React.FC = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── View: Barcode Material Movement Hub ─────────────── */}
+      {viewMode === 'movements' && (
+        <BarcodeMovementHub
+          logs={barcodeMovement.logs}
+          stores={mlInventory.stores}
+          bins={mlInventory.bins}
+          binStockRecords={mlInventory.binStockRecords}
+          inboundOrders={mlInventory.inboundOrders}
+          reservations={mlInventory.reservations}
+          onOpenTerminal={(type) => {
+            setBarcodeTerminalInitialType(type);
+            setBarcodeTerminalOpen(true);
+          }}
+        />
       )}
 
       {/* ── View 4: Classic SKU Master Register ──────────────── */}
@@ -2019,6 +2122,28 @@ export const InventoryPage: React.FC = () => {
         onClose={() => setScannerOpen(false)}
         onScan={handleScan}
         hint={getScanHint(scanMode)}
+      />
+
+      {/* ── Barcode Material Movement Terminal Modal ─────────── */}
+      <BarcodeMovementTerminalModal
+        isOpen={barcodeTerminalOpen}
+        onClose={() => setBarcodeTerminalOpen(false)}
+        initialType={barcodeTerminalInitialType}
+        stores={mlInventory.stores}
+        bins={mlInventory.bins}
+        binStockRecords={mlInventory.binStockRecords}
+        inboundOrders={mlInventory.inboundOrders}
+        reservations={mlInventory.reservations}
+        stockItems={rawItems}
+        onMovementCompleted={() => {
+          barcodeMovement.refresh();
+        }}
+      />
+
+      {/* ── Barcode Label Print Modal ────────────────────────── */}
+      <BarcodeLabelPrintModal
+        isOpen={barcodePrintModalOpen}
+        onClose={() => setBarcodePrintModalOpen(false)}
       />
     </div>
   );

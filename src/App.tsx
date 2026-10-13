@@ -41,6 +41,24 @@ import { MultiLevelBomPage } from './pages/engineering/MultiLevelBomPage';
 import { RoutingsPage } from './pages/engineering/RoutingsPage';
 import { FiniteSchedulingPage } from './pages/planning/FiniteSchedulingPage';
 import { GanttPlannerPage } from './pages/planning/GanttPlannerPage';
+import { MrpEnginePage } from './pages/procurement/MrpEnginePage';
+import { PurchaseOrdersPage } from './pages/procurement/PurchaseOrdersPage';
+import { SuppliersPage } from './pages/procurement/SuppliersPage';
+import { TraceabilityPage } from './pages/quality/TraceabilityPage';
+import { ElectronicBatchRecordPage } from './pages/quality/ElectronicBatchRecordPage';
+import { IncomingQualityPage } from './pages/quality/IncomingQualityPage';
+import { InProcessQualityPage } from './pages/quality/InProcessQualityPage';
+import { SpcControlChartsPage } from './pages/quality/SpcControlChartsPage';
+import { GageCalibrationPage } from './pages/quality/GageCalibrationPage';
+import { FinalQualityPage } from './pages/quality/FinalQualityPage';
+import { NonConformancePage } from './pages/quality/NonConformancePage';
+import { QualityHoldsPage } from './pages/quality/QualityHoldsPage';
+import { StockAgingValuationPage } from './pages/finance/StockAgingValuationPage';
+import { DigitalWorkInstructionsPage } from './pages/production/DigitalWorkInstructionsPage';
+import { TimeCaptureKioskPage } from './pages/production/TimeCaptureKioskPage';
+import { OeeDashboardPage } from './pages/production/OeeDashboardPage';
+import { ProductionGenealogyPage } from './pages/production/ProductionGenealogyPage';
+import { ShiftHandoverPage } from './pages/production/ShiftHandoverPage';
 
 // Settings sub-views
 import { TenantSettingsPage } from './pages/settings/TenantSettingsPage';
@@ -303,6 +321,105 @@ export default function App() {
                 />
 
                 <Route 
+                  path="work-instructions" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer']}>
+                      <DigitalWorkInstructionsPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="digital-work-instructions" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer']}>
+                      <DigitalWorkInstructionsPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="time-capture" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer']}>
+                      <TimeCaptureKioskPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="clock-in" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer']}>
+                      <TimeCaptureKioskPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="oee" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer']}>
+                      <OeeDashboardPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="machine-connectivity" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer']}>
+                      <OeeDashboardPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="production-genealogy" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer']}>
+                      <ProductionGenealogyPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="genealogy" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer']}>
+                      <ProductionGenealogyPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="production-reporting" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer']}>
+                      <ProductionGenealogyPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="shift-handover" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer']}>
+                      <ShiftHandoverPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="handover" 
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'manager', 'operator', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'viewer']}>
+                      <ShiftHandoverPage />
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
                   path="dispatch" 
                   element={
                     <ProtectedRoute allowedRoles={['admin', 'manager', 'dispatch', 'store_keeper', 'management', 'viewer']}>
@@ -361,6 +478,333 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={['admin', 'manager', 'store_keeper', 'operator', 'quality_inspector', 'production', 'management', 'sales', 'dispatch', 'viewer']}>
                   <InventoryPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="mrp" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
+                  <MrpEnginePage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="procurement/mrp" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
+                  <MrpEnginePage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="purchase-orders" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
+                  <PurchaseOrdersPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="procurement/purchase-orders" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
+                  <PurchaseOrdersPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="suppliers" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
+                  <SuppliersPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="procurement/suppliers" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'sales', 'management', 'operator', 'store_keeper', 'production', 'viewer']}>
+                  <SuppliersPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="traceability" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <TraceabilityPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="quality/traceability" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <TraceabilityPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="edhr" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <ElectronicBatchRecordPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="electronic-batch-record" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <ElectronicBatchRecordPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="dhr" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <ElectronicBatchRecordPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="iqc" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <IncomingQualityPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="incoming-quality" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <IncomingQualityPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="quality/iqc" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <IncomingQualityPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="ipqc" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <InProcessQualityPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="in-process-quality" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <InProcessQualityPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="quality/ipqc" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <InProcessQualityPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="spc" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <SpcControlChartsPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="control-charts" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <SpcControlChartsPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="quality/spc" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <SpcControlChartsPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="gages" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <GageCalibrationPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="gage-calibration" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <GageCalibrationPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="calibration" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <GageCalibrationPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="quality/gages" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'viewer']}>
+                  <GageCalibrationPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            {/* Final Quality Control (FQC) & Dispatch Release Routes */}
+            <Route 
+              path="fqc" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'dispatch', 'viewer']}>
+                  <FinalQualityPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="quality/fqc" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'dispatch', 'viewer']}>
+                  <FinalQualityPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="dispatch-release" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'dispatch', 'viewer']}>
+                  <FinalQualityPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            {/* Non-Conformance (NCR) & CAPA Routes */}
+            <Route 
+              path="ncr" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'dispatch', 'viewer']}>
+                  <NonConformancePage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="quality/ncr" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'dispatch', 'viewer']}>
+                  <NonConformancePage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="capa" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'dispatch', 'viewer']}>
+                  <NonConformancePage />
+                </ProtectedRoute>
+              } 
+            />
+
+            {/* Quality Holds & Quarantine Containment Routes */}
+            <Route 
+              path="quality-holds" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'dispatch', 'viewer']}>
+                  <QualityHoldsPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="quality/holds" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'dispatch', 'viewer']}>
+                  <QualityHoldsPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="holds" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'quality_inspector', 'store_keeper', 'production', 'management', 'sales', 'operator', 'dispatch', 'viewer']}>
+                  <QualityHoldsPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="aging-valuation" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'management', 'sales', 'store_keeper', 'production', 'viewer', 'operator']}>
+                  <StockAgingValuationPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="finance/stock-aging-valuation" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'management', 'sales', 'store_keeper', 'production', 'viewer', 'operator']}>
+                  <StockAgingValuationPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="inventory/aging-valuation" 
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager', 'management', 'sales', 'store_keeper', 'production', 'viewer', 'operator']}>
+                  <StockAgingValuationPage />
                 </ProtectedRoute>
               } 
             />

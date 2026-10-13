@@ -8,10 +8,7 @@ import { useDispatchList } from '../hooks/useDispatch';
 import { useInvoices } from '../hooks/useInvoices';
 import { useStockItems } from '../hooks/useStockInventory';
 import { useCustomersList } from '../hooks/useCustomersList';
-<<<<<<< HEAD
-=======
 import { usePlants } from '../hooks/usePlants';
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
 import { exportToCSV, exportReportToPDF } from '../utils/exportUtils';
 import {
   BarChart3,
@@ -30,7 +27,9 @@ import {
   CheckCircle2,
   Clock,
   HelpCircle,
+  Calculator,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 type ReportType = 'rfq' | 'order' | 'dispatch' | 'payment' | 'inventory';
 
@@ -41,14 +40,11 @@ export const ReportsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ReportType>('rfq');
 
   // Unified Filtering State
-<<<<<<< HEAD
-=======
   const [selectedPlantId, setSelectedPlantId] = useState<string>(() => {
     return localStorage.getItem('reports_selected_plant_id') || 'all';
   });
   const { plants = [] } = usePlants(tenantId);
 
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('all');
@@ -105,31 +101,19 @@ export const ReportsPage: React.FC = () => {
 
   // Report 1: RFQ Pipeline Report
   const filteredRfqData = useMemo(() => {
-<<<<<<< HEAD
-    return rfqs.filter(rfq => {
-=======
     return (rfqs || []).filter(rfq => {
       if (selectedPlantId !== 'all' && rfq.plantId !== selectedPlantId) return false;
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       if (!isWithinDateRange(rfq.dateReceived || rfq.createdAt)) return false;
       if (selectedCustomerId !== 'all' && rfq.customerId !== selectedCustomerId && rfq.customerName !== selectedCustomerId) return false;
       if (selectedStatus !== 'all' && rfq.status.toLowerCase() !== selectedStatus.toLowerCase()) return false;
       return true;
     });
-<<<<<<< HEAD
-  }, [rfqs, startDate, endDate, selectedCustomerId, selectedStatus]);
-
-  // Report 2: Order Status Report
-  const filteredOrderData = useMemo(() => {
-    return orders.filter(order => {
-=======
   }, [rfqs, startDate, endDate, selectedCustomerId, selectedStatus, selectedPlantId]);
 
   // Report 2: Order Status Report
   const filteredOrderData = useMemo(() => {
     return (orders || []).filter(order => {
       if (selectedPlantId !== 'all' && order.plantId !== selectedPlantId) return false;
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       // Created Date is serialized as Firebase timestamp or ISO string
       const dateStr = order.createdAt?.seconds 
         ? new Date(order.createdAt.seconds * 1000).toISOString() 
@@ -140,70 +124,42 @@ export const ReportsPage: React.FC = () => {
       if (selectedStatus !== 'all' && order.status.toLowerCase() !== selectedStatus.toLowerCase()) return false;
       return true;
     });
-<<<<<<< HEAD
-  }, [orders, startDate, endDate, selectedCustomerId, selectedStatus]);
-
-  // Report 3: Dispatch Summary
-  const filteredDispatchData = useMemo(() => {
-    return dispatches.filter(d => {
-=======
   }, [orders, startDate, endDate, selectedCustomerId, selectedStatus, selectedPlantId]);
 
   // Report 3: Dispatch Summary
   const filteredDispatchData = useMemo(() => {
     return (dispatches || []).filter(d => {
       if (selectedPlantId !== 'all' && d.plantId !== selectedPlantId) return false;
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       const dateStr = d.dispatchDate || d.dispatchedAt;
       if (!isWithinDateRange(dateStr)) return false;
       if (selectedCustomerId !== 'all' && d.customerName !== selectedCustomerId) return false;
       if (selectedTransporter !== 'all' && d.transporter !== selectedTransporter) return false;
       return true;
     });
-<<<<<<< HEAD
-  }, [dispatches, startDate, endDate, selectedCustomerId, selectedTransporter]);
-
-  // Report 4: Outstanding & Payments Summary
-  const filteredPaymentData = useMemo(() => {
-    return invoices.filter(inv => {
-=======
   }, [dispatches, startDate, endDate, selectedCustomerId, selectedTransporter, selectedPlantId]);
 
   // Report 4: Outstanding & Payments Summary
   const filteredPaymentData = useMemo(() => {
     return (invoices || []).filter(inv => {
       if (selectedPlantId !== 'all' && inv.plantId !== selectedPlantId) return false;
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       if (!isWithinDateRange(inv.invoiceDate)) return false;
       if (selectedCustomerId !== 'all' && inv.customerName !== selectedCustomerId) return false;
       if (selectedStatus !== 'all' && inv.status.toLowerCase() !== selectedStatus.toLowerCase()) return false;
       return true;
     });
-<<<<<<< HEAD
-  }, [invoices, startDate, endDate, selectedCustomerId, selectedStatus]);
-
-  // Report 5: Inventory Valuation Report
-  const filteredInventoryData = useMemo(() => {
-    return stockItems.filter(item => {
-=======
   }, [invoices, startDate, endDate, selectedCustomerId, selectedStatus, selectedPlantId]);
 
   // Report 5: Inventory Valuation Report
   const filteredInventoryData = useMemo(() => {
     return (stockItems || []).filter(item => {
       if (selectedPlantId !== 'all' && item.plantId !== selectedPlantId) return false;
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       if (selectedCategory !== 'all' && item.category !== selectedCategory) return false;
       if (selectedStatus === 'reorder') {
         return item.currentQty <= item.reorderLevel;
       }
       return true;
     });
-<<<<<<< HEAD
-  }, [stockItems, selectedCategory, selectedStatus]);
-=======
   }, [stockItems, selectedCategory, selectedStatus, selectedPlantId]);
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
 
 
   // ==========================================
@@ -422,13 +378,6 @@ export const ReportsPage: React.FC = () => {
           <Filter className="h-4 w-4 text-sky-600" />
           <h4 className="text-xs font-mono uppercase tracking-wider font-bold">Configure Report Options</h4>
         </div>
-<<<<<<< HEAD
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          {/* Start Date */}
-          {activeTab !== 'inventory' && (
-            <div>
-              <label className="block text-[10px] font-mono uppercase text-slate-500 font-bold mb-1.5 flex items-center space-x-1">
-=======
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {/* Plant scoping filter */}
           <div>
@@ -457,7 +406,6 @@ export const ReportsPage: React.FC = () => {
           {activeTab !== 'inventory' && (
             <div>
               <label className="block text-[10px] font-mono uppercase text-slate-500 font-bold mb-1.5 items-center space-x-1">
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
                 <Calendar className="h-3 w-3 shrink-0 text-slate-450" />
                 <span>Start Date</span>
               </label>
@@ -473,11 +421,7 @@ export const ReportsPage: React.FC = () => {
           {/* End Date */}
           {activeTab !== 'inventory' && (
             <div>
-<<<<<<< HEAD
-              <label className="block text-[10px] font-mono uppercase text-slate-500 font-bold mb-1.5 flex items-center space-x-1">
-=======
               <label className="block text-[10px] font-mono uppercase text-slate-500 font-bold mb-1.5 items-center space-x-1">
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
                 <Calendar className="h-3 w-3 shrink-0 text-slate-450" />
                 <span>End Date</span>
               </label>
@@ -502,11 +446,7 @@ export const ReportsPage: React.FC = () => {
                 className="w-full bg-slate-50 border border-slate-205 hover:bg-slate-100/50 text-[11px] font-mono rounded px-3 py-1.5 focus:outline-hidden focus:border-sky-500 transition-all text-slate-805 cursor-pointer"
               >
                 <option value="all">ALL CUSTOMERS</option>
-<<<<<<< HEAD
-                {customers.map(c => (
-=======
                 {(customers || []).map(c => (
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
                   <option key={c.id || c.name} value={c.name}>
                     {c.name}
                   </option>
@@ -955,7 +895,34 @@ export const ReportsPage: React.FC = () => {
       case 'inventory': {
         const hasData = filteredInventoryData.length > 0;
         return (
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+          <div className="space-y-4">
+            {/* Live Stock Aging & Valuation Module Link Banner */}
+            <div className="bg-gradient-to-r from-indigo-900/90 via-slate-900 to-indigo-950 p-4 rounded-xl border border-indigo-500/30 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-500/20 text-indigo-300 rounded-lg border border-indigo-500/30">
+                  <Calculator className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    Advanced Stock Aging & Valuation (FIFO & WAC)
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      NEW
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Real-time aging buckets (0-30, 31-60, 61-90, 90+ days), dual valuation comparison, slow-moving items, and expiry alerts.
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/aging-valuation"
+                className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow-md transition-colors font-mono uppercase"
+              >
+                Open Valuation Center &rarr;
+              </Link>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -1028,8 +995,9 @@ export const ReportsPage: React.FC = () => {
               </span>
             </div>
           </div>
-        );
-      }
+        </div>
+      );
+    }
     }
   };
 
@@ -1119,8 +1087,4 @@ export const ReportsPage: React.FC = () => {
       {renderActiveReportTable()}
     </div>
   );
-<<<<<<< HEAD
 };
-=======
-};
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145

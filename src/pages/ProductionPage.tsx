@@ -36,13 +36,19 @@ import {
   CalendarClock,
   Split,
   Merge,
-  GitBranch
+  GitBranch,
+  Tablet,
+  Gauge,
+  UserCheck,
+  AlertOctagon
 } from 'lucide-react';
 import { GenerateWorkOrdersModal } from '../components/orders/GenerateWorkOrdersModal';
 import { ShopTravelerModal } from '../components/orders/ShopTravelerModal';
 import { WorkOrderSplitModal } from '../components/workOrders/WorkOrderSplitModal';
 import { WorkOrderMergeModal } from '../components/workOrders/WorkOrderMergeModal';
 import { WorkOrderGenealogyModal } from '../components/workOrders/WorkOrderGenealogyModal';
+import { qualityHoldService } from '../services/qualityHoldService';
+import { QualityHoldBadge } from '../components/quality-holds/QualityHoldBadge';
 
 // ── Step 4.4 — Scanner wiring ───────────────────────────────
 import { BarcodeScanner } from '../components/BarcodeScanner';
@@ -178,6 +184,15 @@ export const ProductionPage: React.FC = () => {
 
   // ── Operation actions ─────────────────────────────────────
   const handleStartOperation = async (wo: WorkOrder, op: WorkOrderOperation) => {
+    const hold = qualityHoldService.getActiveHoldForTarget(wo.orderNumber);
+    if (hold && hold.preventProductionProgression) {
+      setActionMsg({
+        type: 'err',
+        text: `Operation Blocked: ${wo.orderNumber} is on Quality Hold [${hold.id}]. Reason: ${hold.holdReason}. Quality release sign-off required.`
+      });
+      return;
+    }
+
     setActionSubmitting(true);
     setActionMsg(null);
     try {
@@ -352,6 +367,51 @@ export const ProductionPage: React.FC = () => {
           >
             <CalendarClock className="h-4 w-4 text-indigo-400" />
             <span>Capacity Scheduler</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/work-instructions')}
+            className="flex items-center gap-2 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/80 text-xs font-mono uppercase py-2 px-3.5 rounded-lg font-bold shadow-xs transition-all cursor-pointer"
+            title="Digital Work Instructions with CAD drawings, videos, and step sign-offs on tablet"
+          >
+            <Tablet className="h-4 w-4 text-cyan-400" />
+            <span>Tablet Instructions</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/time-capture')}
+            className="flex items-center gap-2 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/80 text-xs font-mono uppercase py-2 px-3.5 rounded-lg font-bold shadow-xs transition-all cursor-pointer"
+            title="Operator Start/Stop Time Capture Terminal with live stopwatch timers"
+          >
+            <Clock className="h-4 w-4 text-emerald-400" />
+            <span>Time Clock Kiosk</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/oee')}
+            className="flex items-center gap-2 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/80 text-xs font-mono uppercase py-2 px-3.5 rounded-lg font-bold shadow-xs transition-all cursor-pointer"
+            title="Machine Connectivity & Real-Time OEE telemetry from PLCs and sensors"
+          >
+            <Gauge className="h-4 w-4 text-cyan-400" />
+            <span>Machine OEE</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/production-genealogy')}
+            className="flex items-center gap-2 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/80 text-xs font-mono uppercase py-2 px-3.5 rounded-lg font-bold shadow-xs transition-all cursor-pointer"
+            title="Complete Unit & Batch Production Genealogy with Operator, Machine, and Timestamp Lineage"
+          >
+            <GitBranch className="h-4 w-4 text-indigo-400" />
+            <span>Genealogy &amp; Trace</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/shift-handover')}
+            className="flex items-center gap-2 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/80 text-xs font-mono uppercase py-2 px-3.5 rounded-lg font-bold shadow-xs transition-all cursor-pointer"
+            title="Digital Shift Handover Notes &amp; Machine Status Handshake"
+          >
+            <UserCheck className="h-4 w-4 text-indigo-400" />
+            <span>Shift Handover</span>
           </button>
 
           <button
@@ -599,6 +659,21 @@ export const ProductionPage: React.FC = () => {
                               Merged
                             </span>
                           )}
+                          {(() => {
+                            const hold = qualityHoldService.getActiveHoldForTarget(wo.orderNumber);
+                            if (hold) {
+                              return (
+                                <span
+                                  className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-950 text-rose-300 border border-rose-500/80 flex items-center gap-1 animate-pulse"
+                                  title={`Quality Hold Active: ${hold.holdReason}`}
+                                >
+                                  <AlertOctagon className="w-2.5 h-2.5 text-rose-400" />
+                                  HOLD
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </td>
                       <td className="py-4 px-4">
@@ -739,9 +814,25 @@ export const ProductionPage: React.FC = () => {
                   >
                     {PRIORITY_META[activeWo.priority].label}
                   </span>
+                  {(() => {
+                    const hold = qualityHoldService.getActiveHoldForTarget(activeWo.orderNumber);
+                    if (hold) {
+                      return <QualityHoldBadge status="active_hold" holdId={hold.id} size="sm" />;
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
               <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/quality-holds')}
+                  className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-mono font-bold px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-pointer transition-colors"
+                  title="Quality Hold & Containment Management"
+                >
+                  <AlertOctagon className="h-3.5 w-3.5 text-rose-600" />
+                  <span className="hidden sm:inline">Quality Hold</span>
+                </button>
                 {activeWo.status !== 'completed' && activeWo.status !== 'cancelled' && !activeWo.isSplitParent && activeWo.status !== 'merged' && (
                   <button
                     type="button"
@@ -772,6 +863,15 @@ export const ProductionPage: React.FC = () => {
                   <span className="hidden sm:inline">Traveler Slip</span>
                 </button>
                 <button
+                  type="button"
+                  onClick={() => navigate(`/work-instructions?wo=${activeWo.orderNumber}`)}
+                  className="bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 text-xs font-mono font-bold px-3 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-pointer transition-colors"
+                  title="Open Digital Work Instructions on Tablet"
+                >
+                  <Tablet className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Tablet SOP</span>
+                </button>
+                <button
                   onClick={() => setActiveWoId(null)}
                   className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                 >
@@ -779,6 +879,44 @@ export const ProductionPage: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Active Quality Hold Lockdown Alert Banner */}
+            {(() => {
+              const hold = qualityHoldService.getActiveHoldForTarget(activeWo.orderNumber);
+              if (hold) {
+                return (
+                  <div className="mx-4 md:mx-6 mt-4 p-3.5 bg-rose-50 border-2 border-rose-400 rounded-xl flex items-start justify-between gap-3 shadow-xs">
+                    <div className="flex items-start gap-2.5">
+                      <AlertOctagon className="w-5 h-5 text-rose-600 shrink-0 mt-0.5 animate-pulse" />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <strong className="text-xs font-bold text-rose-900 uppercase tracking-wide">
+                            QUALITY CONTAINMENT HOLD ACTIVE [{hold.id}]
+                          </strong>
+                          <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-rose-200 text-rose-800 font-bold uppercase">
+                            {hold.severity}
+                          </span>
+                        </div>
+                        <p className="text-xs text-rose-800 font-medium leading-tight mt-0.5">
+                          {hold.holdReason}
+                        </p>
+                        <p className="text-[10px] text-rose-700 font-mono mt-1">
+                          Containment: {hold.location} · Placed by {hold.placedBy} · Operations &amp; Dispatch Blocked
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/quality-holds')}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold font-mono uppercase tracking-wider shrink-0 shadow-xs transition"
+                    >
+                      Open Release Desk
+                    </button>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             <div className="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto">
 
@@ -1119,6 +1257,15 @@ export const ProductionPage: React.FC = () => {
                                   ✓ Operation Completed
                                 </div>
                               )}
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/work-instructions?wo=${activeWo.orderNumber}&op=${op.id}`)}
+                                className="bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 text-xs font-mono font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                title="Open Digital Work Instructions on Tablet"
+                              >
+                                <Tablet size={13} />
+                                <span>Tablet SOP</span>
+                              </button>
                             </div>
                           )}
                         </div>

@@ -7,7 +7,17 @@
  *  - Manual keyboard-wedge input
  */
 
-export type ScanTarget = 'material' | 'workOrder' | 'machine' | 'location' | 'batch';
+export type ScanTarget = 
+  | 'material' 
+  | 'workOrder' 
+  | 'purchaseOrder' 
+  | 'machine' 
+  | 'location' 
+  | 'batch'
+  | 'operator'
+  | 'operation'
+  | 'workOrderOperation'
+  | 'command';
 
 export interface ScanResult {
   raw: string;
@@ -15,6 +25,9 @@ export interface ScanResult {
   target?: ScanTarget;     // resolved entity type
   entityId?: string;       // resolved entity ID
   timestamp: number;
+  workOrderNumber?: string;
+  operationCode?: string;
+  command?: 'start' | 'stop' | 'pause';
 }
 
 export type ScanHandler = (result: ScanResult) => void;
@@ -79,22 +92,92 @@ export class CameraScanner {
 // ─── Entity Resolution ─────────────────────────────────────────
 
 /**
- * Prefix conventions for QR codes:
- *   MAT-xxxx   → Raw Material
- *   WO-xxxx    → Work Order
- *   MC-xxxx    → Machine / Work Center
- *   LOC-xxxx   → Storage Location
- *   LOT-xxxx   → Batch / Lot
+ * Prefix conventions for barcodes and QR codes:
+ *   MAT-xxxx / SKU-xxxx → Material / Raw Stock
+ *   PO-xxxx / SPO-xxxx  → Purchase Order (Vendor Inbound)
+ *   WO-xxxx             → Work Order (Shop Floor Production)
+ *   LOC-xxxx / BIN-xxxx → Storage Location / Bin
+ *   MC-xxxx / WC-xxxx   → Machine / Work Center
+ *   LOT-xxxx / HEAT-xxx → Batch / Lot / Heat Number
  */
 export function parseScan(raw: string): ScanResult {
   const upper = raw.trim().toUpperCase();
   const result: ScanResult = { raw, format: 'unknown', timestamp: Date.now() };
 
-  if (upper.startsWith('MAT-')) { result.target = 'material'; result.entityId = upper; }
-  else if (upper.startsWith('WO-')) { result.target = 'workOrder'; result.entityId = upper; }
-  else if (upper.startsWith('MC-')) { result.target = 'machine'; result.entityId = upper; }
-  else if (upper.startsWith('LOC-')) { result.target = 'location'; result.entityId = upper; }
-  else if (upper.startsWith('LOT-')) { result.target = 'batch'; result.entityId = upper; }
+  // Check for JSON QR payload
+  if (raw.trim().startsWith('{') && raw.trim().endsWith('}')) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed.wo && parsed.op) {
+        result.target = 'workOrderOperation';
+        result.workOrderNumber = String(parsed.wo).toUpperCase();
+        result.operationCode = String(parsed.op).toUpperCase();
+        result.entityId = `${result.workOrderNumber}/${result.operationCode}`;
+        return result;
+      }
+      if (parsed.emp || parsed.badge) {
+        result.target = 'operator';
+        result.entityId = String(parsed.emp || parsed.badge).toUpperCase();
+        return result;
+      }
+    } catch {
+      // not valid JSON, proceed to regex / prefix checks
+    }
+  }
+
+  // Check for Composite Barcode: WO-xxxx/OP-xx or WO-xxxx:OP-xx
+  const compositeMatch = upper.match(/^(WO-[\w-]+)[\/:](OP-[\w-]+)$/i);
+  if (compositeMatch) {
+    result.target = 'workOrderOperation';
+    result.workOrderNumber = compositeMatch[1];
+    result.operationCode = compositeMatch[2];
+    result.entityId = `${compositeMatch[1]}/${compositeMatch[2]}`;
+    return result;
+  }
+
+  // Operator identification badge (e.g. EMP-7041, OPR-201, BADGE-99)
+  if (upper.startsWith('EMP-') || upper.startsWith('OPR-') || upper.startsWith('BADGE-')) {
+    result.target = 'operator';
+    result.entityId = upper;
+  }
+  // Control Commands (e.g. CMD-START, CMD-STOP, CMD-PAUSE)
+  else if (upper.startsWith('CMD-')) {
+    result.target = 'command';
+    result.entityId = upper;
+    if (upper.includes('START') || upper.includes('IN')) result.command = 'start';
+    else if (upper.includes('STOP') || upper.includes('OUT') || upper.includes('COMPLETE')) result.command = 'stop';
+    else if (upper.includes('PAUSE')) result.command = 'pause';
+  }
+  // Standalone Operation Code (e.g. OP-10, OP-20, OP-CUT-01)
+  else if (upper.startsWith('OP-')) {
+    result.target = 'operation';
+    result.entityId = upper;
+    result.operationCode = upper;
+  }
+  else if (upper.startsWith('MAT-')) {
+    result.target = 'material';
+    result.entityId = upper;
+  } else if (upper.startsWith('PO-') || upper.startsWith('SPO-')) {
+    result.target = 'purchaseOrder';
+    result.entityId = upper;
+  } else if (upper.startsWith('WO-')) {
+    result.target = 'workOrder';
+    result.entityId = upper;
+    result.workOrderNumber = upper;
+  } else if (upper.startsWith('MC-') || upper.startsWith('WC-')) {
+    result.target = 'machine';
+    result.entityId = upper;
+  } else if (upper.startsWith('LOC-') || upper.startsWith('BIN-') || upper.startsWith('RACK-')) {
+    result.target = 'location';
+    result.entityId = upper;
+  } else if (upper.startsWith('LOT-') || upper.startsWith('HEAT-')) {
+    result.target = 'batch';
+    result.entityId = upper;
+  } else {
+    // Default to material for alphanumeric SKU codes (e.g. WR-1002, CS-FC300, CO-HO68)
+    result.target = 'material';
+    result.entityId = upper;
+  }
 
   return result;
 }

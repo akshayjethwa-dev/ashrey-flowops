@@ -21,8 +21,10 @@ import {
   Layers,
   Building2,
   CheckCircle2,
-  Award
+  Award,
+  Tablet
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { 
   ProductRouting, 
   RoutingOperation, 
@@ -240,10 +242,20 @@ export const VisualRoutingFlowDiagram: React.FC<VisualRoutingFlowDiagramProps> =
 
                     {/* Step-by-Step Operator Instructions */}
                     {op.instructions && (
-                      <p className="text-xs text-slate-300 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/80 leading-relaxed">
-                        <strong className="text-slate-400">Work Instructions: </strong>
-                        {op.instructions}
-                      </p>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800/80">
+                        <p className="text-xs text-slate-300 leading-relaxed">
+                          <strong className="text-slate-400">Work Instructions: </strong>
+                          {op.instructions}
+                        </p>
+                        <Link
+                          to={`/work-instructions?op=${op.operationCode}`}
+                          className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-700/60 text-cyan-300 hover:text-white rounded-lg text-[11px] font-mono font-semibold transition"
+                          title="Open full digital work instructions with CAD drawings, videos, and step sign-offs"
+                        >
+                          <Tablet className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>Tablet SOP</span>
+                        </Link>
+                      </div>
                     )}
 
                     {/* Metadata tags: Tooling, QC criteria, Safety PPE */}

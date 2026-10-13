@@ -219,6 +219,16 @@ export const RoutingsPage: React.FC = () => {
 
             <button
               type="button"
+              onClick={() => navigate('/ipqc')}
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700/80 text-slate-200 border border-slate-700 text-xs font-medium flex items-center gap-1.5 transition-colors shadow-xs"
+              title="Configure Quality Control Points (QCP) and in-process checks"
+            >
+              <ShieldCheck className="w-4 h-4 text-cyan-400" />
+              <span>Operation QCPs</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setIsCreateRoutingOpen(true)}
               className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-indigo-600/20 transition-all"
             >

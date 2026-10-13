@@ -520,6 +520,10 @@ service cloud.firestore {
         allow read, write: if isTenantMember(tenantId);
       }
 
+      match /suppliers/{supplierId} {
+        allow read, write: if isTenantMember(tenantId);
+      }
+
       match /loginAuditLogs/{logId} {
         allow read: if isTenantMember(tenantId) && getUserRole() in ['admin', 'manager', 'management'];
         allow create: if isSignedIn();

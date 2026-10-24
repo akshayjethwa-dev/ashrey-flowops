@@ -50,7 +50,6 @@ export async function logActivityEvent({
   action: customAction,
   entityLabel: customEntityLabel
 }: LogActivityParams): Promise<boolean> {
-  if (!tenantId) return false;
   // STRICT GUARD: Prevent logging attempts if tenantId or userId is missing
   if (!tenantId || !actor?.userId) {
     console.warn("Activity logger skipped: Missing tenantId or userId in auth context.");
@@ -150,35 +149,6 @@ export async function logActivityEvent({
       return false;
     }
   } else {
-    try {
-      const eventId = baseEvent.id;
-
-      // Create documents under both paths for complete backwards compatibility
-      const liveEventWithTimestamp = {
-        ...baseEvent,
-        timestamp: serverTimestamp()
-      };
-
-      // 1. Root collection 'activityLog'
-      const rootDocRef = doc(collection(db, 'activityLog'), eventId);
-      await setDoc(rootDocRef, liveEventWithTimestamp);
-
-      // 2. Tenant subcollection 'tenants/${tenantId}/activity'
-      const legacyDocRef = doc(collection(db, 'tenants', tenantId, 'activity'), eventId);
-      await setDoc(legacyDocRef, liveEventWithTimestamp);
-
-      return true;
-    } catch (err) {
-      console.error('Firestore logActivityEvent failed:', err);
-      try {
-        handleFirestoreError(err, OperationType.WRITE, `activityLog/${baseEvent.id}`);
-      } catch (logErr) {
-        // Suppress failure propagation to not interrupt transactions
-      }
-      return false;
-    }
-  }
-}
     const eventId = baseEvent.id;
     const liveEventWithTimestamp = {
       ...baseEvent,

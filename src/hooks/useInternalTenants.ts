@@ -140,10 +140,6 @@ export const useAllTenants = () => {
   };
 
   const createTenant = async (tenant: Omit<TenantSummary, 'activeUsersCount' | 'rfqsCount' | 'jobsCount' | 'lastActivityAt'>) => {
-<<<<<<< HEAD
-    const newT: TenantSummary = {
-      ...tenant,
-=======
     // Ensure unique ID if a collision occurs
     let candidateId = tenant.id.toLowerCase().trim();
     let counter = 1;
@@ -155,7 +151,6 @@ export const useAllTenants = () => {
     const newT: TenantSummary = {
       ...tenant,
       id: candidateId,
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       activeUsersCount: 1,
       rfqsCount: 0,
       jobsCount: 0,
@@ -163,9 +158,6 @@ export const useAllTenants = () => {
     };
 
     if (isSandboxMode || !db) {
-<<<<<<< HEAD
-      const updated = [...tenants, newT];
-=======
       // Avoid duplicate company entries in local list
       const existingIdx = tenants.findIndex(t => t.id === candidateId);
       let updated: TenantSummary[];
@@ -175,35 +167,24 @@ export const useAllTenants = () => {
       } else {
         updated = [...tenants, newT];
       }
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       localStorage.setItem('flowops_internal_tenants', JSON.stringify(updated));
       setTenants(updated);
       return true;
     } else {
       try {
-<<<<<<< HEAD
-        const tenantRef = doc(db, 'tenants', tenant.id);
-        const tenantData: Tenant = {
-          id: tenant.id,
-=======
         const tenantRef = doc(db, 'tenants', candidateId);
         const tenantData: Tenant = {
           id: candidateId,
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
           companyName: tenant.companyName,
           createdAt: tenant.createdAt,
           currency: '₹',
           isActive: tenant.isActive
         };
         await setDoc(tenantRef, tenantData);
-<<<<<<< HEAD
-        setTenants(prev => [...prev, newT]);
-=======
         setTenants(prev => {
           const filtered = prev.filter(t => t.id !== candidateId);
           return [...filtered, newT];
         });
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
         return true;
       } catch (err: any) {
         console.error('Failed to provision tenant in Firestore:', err);
@@ -327,8 +308,4 @@ export const useTenantAdminDetail = (tenantId: string | undefined) => {
   }, [tenantId, isSandboxMode]);
 
   return { tenant, stats, loading, error };
-<<<<<<< HEAD
 };
-=======
-};
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145

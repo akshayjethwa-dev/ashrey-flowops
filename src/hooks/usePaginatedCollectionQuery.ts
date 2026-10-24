@@ -2,10 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { db } from '../firebase';
-<<<<<<< HEAD
-=======
 import { useAuth } from './useAuth';
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
 import { 
   collection, 
   query, 
@@ -40,10 +37,7 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
     localBackupKey?: string;
   } = {}
 ): PaginationResult<T> => {
-<<<<<<< HEAD
-=======
   const { tenant, activePlantId } = useAuth();
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
   const {
     filters = {},
     pageSize = 10,
@@ -74,13 +68,6 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
     }
 
     try {
-<<<<<<< HEAD
-      const cached = localStorage.getItem(localBackupKey) || '[]';
-      let parsed = JSON.parse(cached) as T[];
-
-      // Apply dynamic filtering specs locally
-      parsed = parsed.filter((item: any) => {
-=======
       let cached = localStorage.getItem(localBackupKey);
 
       // AUTO-SEED SANDBOX KEY IF EMPTY (Resolves hook race conditions on fresh session/reload)
@@ -229,7 +216,6 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
           }
         }
 
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
         for (const [key, val] of Object.entries(filters)) {
           if (val === undefined || val === null || val === '') continue;
 
@@ -335,12 +321,6 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
       console.error('Failed to prepare local sandbox pagination cache:', err);
       localFilteredCacheRef.current = [];
     }
-<<<<<<< HEAD
-  }, [filters, localBackupKey, sortField, sortDirection]);
-
-  // Initial load or resetting sequence
-  const resetAndFetch = useCallback(async () => {
-=======
   }, [filters, localBackupKey, sortField, sortDirection, activePlantId, collectionPath]);
 
   // Initial load or resetting sequence
@@ -351,18 +331,13 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
       return;
     }
 
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
     setLoading(true);
     setError(null);
     setData([]);
     lastDocRef.current = null;
     localOffsetRef.current = 0;
 
-<<<<<<< HEAD
-    if (isSandbox || !db) {
-=======
     if (isSandbox) {
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       // Sandbox mode mock cursor paging
       buildLocalSandboxCache();
       const firstBatch = localFilteredCacheRef.current.slice(0, pageSize);
@@ -381,11 +356,7 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
         // Scoped static parameters if existing
         for (const [key, val] of Object.entries(filters)) {
           if (val === undefined || val === null || val === '') continue;
-<<<<<<< HEAD
-          if (['search', 'startDate', 'endDate', 'status', 'assignedTo', 'tag', 'assignedSalesUserId', 'city'].includes(key)) {
-=======
           if (['search', 'startDate', 'endDate', 'status', 'assignedTo', 'tag', 'assignedSalesUserId', 'city', 'type'].includes(key)) {
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
             // These require composite indexes or complex local search maps
             continue;
           }
@@ -404,10 +375,6 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
           list.push({ id: docSnap.id, ...docSnap.data() } as T);
         });
 
-<<<<<<< HEAD
-        // Local filtering to support fuzzy text searches & nested ranges without requiring heavy index configs
-        let finalSet = list;
-=======
         // Local filtering to support fuzzy text searches, backwards compatibility & nested ranges without requiring heavy index configs
         let finalSet = list;
 
@@ -421,17 +388,13 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
           }
         }
 
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
         if (filters.search) {
           const s = String(filters.search).toLowerCase();
           finalSet = finalSet.filter(item => JSON.stringify(item).toLowerCase().includes(s));
         }
-<<<<<<< HEAD
-=======
         if (filters.type) {
           finalSet = finalSet.filter(item => String((item as any).type || '').toLowerCase() === String(filters.type).toLowerCase());
         }
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
         if (filters.status) {
           const statusVal = String(filters.status).toLowerCase();
           finalSet = finalSet.filter(item => {
@@ -468,30 +431,16 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
         setLoading(false);
       }
     }
-<<<<<<< HEAD
-  }, [collectionPath, isSandbox, pageSize, sortField, sortDirection, filters, buildLocalSandboxCache]);
-
-  useEffect(() => {
-    resetAndFetch();
-  }, [collectionPath, isSandbox, sortField, sortDirection, JSON.stringify(filters)]);
-=======
   }, [collectionPath, isSandbox, pageSize, sortField, sortDirection, filters, buildLocalSandboxCache, tenant?.id, activePlantId]); 
 
   useEffect(() => {
     resetAndFetch();
   }, [collectionPath, isSandbox, sortField, sortDirection, JSON.stringify(filters), tenant?.id, activePlantId]); 
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
 
   // Progressive load more function
   const loadMore = async () => {
     if (loading || loadingMore || !hasMore) return;
 
-<<<<<<< HEAD
-    setLoadingMore(true);
-    setError(null);
-
-    if (isSandbox || !db) {
-=======
     // STRICT TENANT GUARD for progressive loads
     if (!isSandbox && (!tenant?.id || !db || collectionPath.includes('/undefined'))) {
       return;
@@ -501,7 +450,6 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
     setError(null);
 
     if (isSandbox) {
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       // Next Sandbox mock segment slice
       const start = localOffsetRef.current;
       const end = start + pageSize;
@@ -526,11 +474,7 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
         // Dynamic filters matching target conditions
         for (const [key, val] of Object.entries(filters)) {
           if (val === undefined || val === null || val === '') continue;
-<<<<<<< HEAD
-          if (['search', 'startDate', 'endDate', 'status', 'assignedTo', 'tag', 'assignedSalesUserId', 'city'].includes(key)) continue;
-=======
           if (['search', 'startDate', 'endDate', 'status', 'assignedTo', 'tag', 'assignedSalesUserId', 'city', 'type'].includes(key)) continue;
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
           constraints.push(where(key, '==', val));
         }
 
@@ -548,8 +492,6 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
 
         // local searches
         let finalSet = list;
-<<<<<<< HEAD
-=======
         
         // Scope backwards-compatible plants
         if (activePlantId && activePlantId !== 'all') {
@@ -561,17 +503,13 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
           }
         }
 
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
         if (filters.search) {
           const s = String(filters.search).toLowerCase();
           finalSet = finalSet.filter(item => JSON.stringify(item).toLowerCase().includes(s));
         }
-<<<<<<< HEAD
-=======
         if (filters.type) {
           finalSet = finalSet.filter(item => String((item as any).type || '').toLowerCase() === String(filters.type).toLowerCase());
         }
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
         if (filters.status) {
           const statusVal = String(filters.status).toLowerCase();
           finalSet = finalSet.filter(item => {
@@ -619,8 +557,4 @@ export const usePaginatedCollectionQuery = <T extends { id: string }>(
     loadMore,
     reset: resetAndFetch
   };
-<<<<<<< HEAD
 };
-=======
-};
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145

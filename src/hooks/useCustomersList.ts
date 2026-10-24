@@ -4,20 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { db } from '../firebase';
 import { 
   collection, 
-<<<<<<< HEAD
-  query, 
-=======
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
   onSnapshot, 
   addDoc, 
   updateDoc, 
   deleteDoc, 
-<<<<<<< HEAD
-  doc, 
-  serverTimestamp 
-} from 'firebase/firestore';
-import { Customer } from '../types';
-=======
   doc
 } from 'firebase/firestore';
 import { Customer } from '../types';
@@ -33,16 +23,12 @@ const sanitizePayload = (payload: any) => {
   });
   return sanitized;
 };
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
 
 export const useCustomersList = (
   tenantId: string | undefined, 
   filters?: { type?: 'customer' | 'dealer' | ''; search?: string }
 ) => {
-<<<<<<< HEAD
-=======
   const { activePlantId } = useAuth();
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,14 +86,10 @@ export const useCustomersList = (
   ];
 
   useEffect(() => {
-<<<<<<< HEAD
-    if (!tenantId) {
-=======
     const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
     const activeTenantId = tenantId || (isSandbox ? 'demo' : null);
 
     if (!activeTenantId) {
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       setLoading(false);
       return;
     }
@@ -115,17 +97,9 @@ export const useCustomersList = (
     setLoading(true);
     setError(null);
 
-<<<<<<< HEAD
-    const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
-
-    if (isSandbox) {
-      try {
-        const key = `customers_${tenantId}`;
-=======
     if (isSandbox) {
       try {
         const key = `customers_${activeTenantId}`;
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
         const cached = localStorage.getItem(key);
         let list: Customer[] = [];
 
@@ -145,11 +119,7 @@ export const useCustomersList = (
     } else {
       // Production live sync: /tenants/{tenantId}/customers
       try {
-<<<<<<< HEAD
-        const colRef = collection(db, 'tenants', tenantId, 'customers');
-=======
         const colRef = collection(db, 'tenants', activeTenantId, 'customers');
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
         const unsubscribe = onSnapshot(colRef, (snapshot) => {
           const list: Customer[] = [];
           snapshot.forEach((docSnap) => {
@@ -172,19 +142,6 @@ export const useCustomersList = (
 
   // Operations: Add Customer
   const addCustomer = useCallback(async (newCust: Omit<Customer, 'tenantId'>): Promise<Customer> => {
-<<<<<<< HEAD
-    if (!tenantId) throw new Error('No tenant detected');
-    const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
-
-    const finalCust: Customer = {
-      ...newCust,
-      tenantId,
-      createdAt: isSandbox ? new Date().toISOString() : serverTimestamp()
-    };
-
-    if (isSandbox) {
-      const key = `customers_${tenantId}`;
-=======
     const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
     
     // Aggressive fallback to prevent 404 undefined paths
@@ -202,44 +159,26 @@ export const useCustomersList = (
 
     if (isSandbox) {
       const key = `customers_${activeTenantId}`;
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       const cached = localStorage.getItem(key);
       const currentList: Customer[] = cached ? JSON.parse(cached) : [];
       
       const newDocId = `cust-${Date.now()}`;
-<<<<<<< HEAD
-      const record = { ...finalCust, id: newDocId };
-=======
       const record = { ...safePayload, id: newDocId };
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       const updatedList = [record, ...currentList];
       
       localStorage.setItem(key, JSON.stringify(updatedList));
       setCustomers(updatedList);
       return record;
     } else {
-<<<<<<< HEAD
-      const colRef = collection(db, 'tenants', tenantId, 'customers');
-      const docRef = await addDoc(colRef, finalCust);
-      const record = { ...finalCust, id: docRef.id };
-=======
       const colRef = collection(db, 'tenants', activeTenantId, 'customers');
       const docRef = await addDoc(colRef, safePayload);
       const record = { ...safePayload, id: docRef.id };
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       return record;
     }
   }, [tenantId]);
 
   // Operations: Update Customer
   const updateCustomer = useCallback(async (id: string, updatedFields: Partial<Customer>) => {
-<<<<<<< HEAD
-    if (!tenantId) throw new Error('No tenant detected');
-    const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
-
-    if (isSandbox) {
-      const key = `customers_${tenantId}`;
-=======
     const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
     const activeTenantId = tenantId || (isSandbox ? 'demo' : 'default_tenant');
 
@@ -247,17 +186,12 @@ export const useCustomersList = (
 
     if (isSandbox) {
       const key = `customers_${activeTenantId}`;
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       const cached = localStorage.getItem(key);
       const currentList: Customer[] = cached ? JSON.parse(cached) : [];
       
       const updatedList = currentList.map(item => {
         if (item.id === id) {
-<<<<<<< HEAD
-          return { ...item, ...updatedFields };
-=======
           return { ...item, ...safeUpdate };
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
         }
         return item;
       });
@@ -265,37 +199,21 @@ export const useCustomersList = (
       localStorage.setItem(key, JSON.stringify(updatedList));
       setCustomers(updatedList);
     } else {
-<<<<<<< HEAD
-      const docRef = doc(db, 'tenants', tenantId, 'customers', id);
-      await updateDoc(docRef, {
-        ...updatedFields,
-        updatedAt: serverTimestamp()
-      });
-=======
       const docRef = doc(db, 'tenants', activeTenantId, 'customers', id);
       await updateDoc(docRef, sanitizePayload({
         ...safeUpdate,
         updatedAt: new Date().toISOString()
       }));
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
     }
   }, [tenantId]);
 
   // Operations: Delete Customer
   const deleteCustomer = useCallback(async (id: string) => {
-<<<<<<< HEAD
-    if (!tenantId) throw new Error('No tenant detected');
-    const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
-
-    if (isSandbox) {
-      const key = `customers_${tenantId}`;
-=======
     const isSandbox = localStorage.getItem('isSandboxMode') === 'true' || !db;
     const activeTenantId = tenantId || (isSandbox ? 'demo' : 'default_tenant');
 
     if (isSandbox) {
       const key = `customers_${activeTenantId}`;
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       const cached = localStorage.getItem(key);
       const currentList: Customer[] = cached ? JSON.parse(cached) : [];
       
@@ -304,11 +222,7 @@ export const useCustomersList = (
       localStorage.setItem(key, JSON.stringify(updatedList));
       setCustomers(updatedList);
     } else {
-<<<<<<< HEAD
-      const docRef = doc(db, 'tenants', tenantId, 'customers', id);
-=======
       const docRef = doc(db, 'tenants', activeTenantId, 'customers', id);
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
       await deleteDoc(docRef);
     }
   }, [tenantId]);
@@ -317,8 +231,6 @@ export const useCustomersList = (
   const filteredCustomers = customers.filter(customer => {
     if (!customer) return false;
     
-<<<<<<< HEAD
-=======
     // Multi-plant scope visibility check (ensuring backward compatibility for legacy non-plant records)
     if (activePlantId && activePlantId !== 'all') {
       if (customer.plantId && customer.plantId !== 'all' && customer.plantId !== activePlantId) {
@@ -326,7 +238,6 @@ export const useCustomersList = (
       }
     }
     
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
     // 1. Filter by Type (customer or dealer)
     if (filters?.type && customer.type !== filters.type) {
       return false;
@@ -358,8 +269,4 @@ export const useCustomersList = (
     updateCustomer, 
     deleteCustomer 
   };
-<<<<<<< HEAD
 };
-=======
-};
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145

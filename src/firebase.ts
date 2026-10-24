@@ -1,16 +1,29 @@
 // src/firebase.ts
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-<<<<<<< HEAD
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import firebaseConfig from '../firebase-applet-config.json';
+import appletConfig from '../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); /* CRITICAL: The app will break without this line */
-export const auth = getAuth();
+// Build unified configuration (prefers firebase-applet-config.json, falls back to env vars)
+const firebaseConfig = {
+  apiKey: appletConfig.apiKey || (import.meta.env?.VITE_FIREBASE_API_KEY as string | undefined),
+  authDomain: appletConfig.authDomain || (import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN as string | undefined),
+  projectId: appletConfig.projectId || (import.meta.env?.VITE_FIREBASE_PROJECT_ID as string | undefined),
+  storageBucket: appletConfig.storageBucket || (import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET as string | undefined),
+  messagingSenderId: appletConfig.messagingSenderId || (import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID as string | undefined),
+  appId: appletConfig.appId || (import.meta.env?.VITE_FIREBASE_APP_ID as string | undefined),
+};
+
+const databaseId = appletConfig.firestoreDatabaseId || (import.meta.env?.VITE_FIREBASE_DATABASE_ID as string | undefined);
+
+// Prevent duplicate app initialization
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+
+// Initialize Firebase services
+export const auth = getAuth(app);
+export const db = databaseId ? getFirestore(app, databaseId) : getFirestore(app); /* CRITICAL: Must use databaseId */
 export const storage = getStorage(app);
-
 
 // Test connection on boot (Phase 1 Validation)
 async function testConnection() {
@@ -23,46 +36,3 @@ async function testConnection() {
   }
 }
 testConnection();
-=======
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-
-// Validate that critical environment variables are present before booting
-const requiredEnvVars = [
-  'VITE_FIREBASE_API_KEY',
-  'VITE_FIREBASE_AUTH_DOMAIN',
-  'VITE_FIREBASE_PROJECT_ID',
-  'VITE_FIREBASE_STORAGE_BUCKET',
-  'VITE_FIREBASE_MESSAGING_SENDER_ID',
-  'VITE_FIREBASE_APP_ID'
-] as const;
-
-for (const envVar of requiredEnvVars) {
-  if (!import.meta.env[envVar]) {
-    throw new Error(`Missing required environment variable: ${envVar}. Please check your .env files.`);
-  }
-}
-
-// Build the configuration object
-const firebaseConfig: Record<string, string | undefined> = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-};
-
-// Optionally append databaseURL if a custom database ID is provided
-if (import.meta.env.VITE_FIREBASE_DATABASE_ID) {
-  firebaseConfig.databaseURL = `https://${import.meta.env.VITE_FIREBASE_DATABASE_ID}.firebaseio.com`;
-}
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-
-// Initialize Firebase services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
->>>>>>> 978af1b45531d5d8c7c4bfd41dd51fd2989cd145
